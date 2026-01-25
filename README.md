@@ -85,6 +85,18 @@ finnberry/
 
 The app will be available at `http://localhost:3000`.
 
+### Accessing from Other Devices
+
+The app automatically detects the host from request headers (`trustHost: true`), which means:
+
+- **Localhost**: Works at `http://localhost:3000`
+- **LAN access**: Works at `http://<your-local-ip>:3000`
+- **Remote server**: Works at `http://<server-ip>:3000`
+
+Magic links will automatically use the correct URL you accessed the app from. You don't need to change `NEXTAUTH_URL` unless you're using a reverse proxy or need to override the auto-detected URL.
+
+**For remote servers (e.g., EC2)**: Open port 3000 in your security group/firewall to access the app from outside the server.
+
 ## MCP Server
 
 The MCP server allows AI agents (like Claude) to interact with your baby tracking data.

@@ -49,6 +49,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "database",
   },
+  // Automatically detect host from request headers
+  // This allows the app to work on localhost, LAN IPs, and public IPs
+  // without changing NEXTAUTH_URL
+  trustHost: true,
 });
 
 export type Session = Awaited<ReturnType<typeof auth>>;
