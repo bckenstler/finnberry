@@ -15,6 +15,14 @@ export async function seedTestData(page: Page) {
   // 2. Or directly insert into the database
   // 3. Or use Prisma client to seed
 
+  // Navigate to the app first to access localStorage
+  // (can't access localStorage on about:blank)
+  const currentUrl = page.url();
+  if (currentUrl === "about:blank") {
+    await page.goto("/");
+    await page.waitForLoadState("domcontentloaded");
+  }
+
   // For now, store test data references in localStorage
   await page.evaluate((data) => {
     localStorage.setItem("finnberry-test-data", JSON.stringify(data));
@@ -29,10 +37,18 @@ export async function cleanupTestData(page: Page) {
   // 1. Delete test records from the database
   // 2. Or call a test API endpoint for cleanup
 
-  await page.evaluate(() => {
-    localStorage.removeItem("finnberry-test-data");
-    localStorage.removeItem("finnberry-timers");
-  });
+  // Skip if page is already closed or on about:blank
+  try {
+    const currentUrl = page.url();
+    if (currentUrl !== "about:blank") {
+      await page.evaluate(() => {
+        localStorage.removeItem("finnberry-test-data");
+        localStorage.removeItem("finnberry-timers");
+      });
+    }
+  } catch {
+    // Page may already be closed, ignore
+  }
 }
 
 // Helper to create test household

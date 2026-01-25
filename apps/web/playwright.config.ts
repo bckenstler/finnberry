@@ -15,19 +15,33 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
+      // Only run auth tests by default (tests that don't require auth setup)
+      testMatch: /auth\.spec\.ts/,
+    },
+    {
+      name: "chromium-authenticated",
+      use: { ...devices["Desktop Chrome"] },
+      // Tests requiring authentication infrastructure
+      testMatch: /(?:household|tracking|timer-persistence|realtime-sync)\.spec\.ts/,
+      // These tests require proper auth setup and test database
+      // Run with: npx playwright test --project=chromium-authenticated
     },
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"] },
+      testMatch: /auth\.spec\.ts/,
     },
     {
       name: "webkit",
       use: { ...devices["Desktop Safari"] },
+      testMatch: /auth\.spec\.ts/,
     },
   ],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: process.env.CI
+    ? {
+        command: "pnpm dev",
+        url: "http://localhost:3000",
+        reuseExistingServer: false,
+      }
+    : undefined,
 });

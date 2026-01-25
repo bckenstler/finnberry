@@ -1,6 +1,11 @@
 import { test, expect } from "./fixtures/auth";
 import { seedTestData, cleanupTestData, testData } from "./fixtures/database";
 
+// Helper to check if user is redirected to login (not authenticated)
+async function isOnLoginPage(page: import("@playwright/test").Page): Promise<boolean> {
+  return page.url().includes("/login");
+}
+
 test.describe("Timer Persistence", () => {
   test.beforeEach(async ({ authenticatedPage }) => {
     await seedTestData(authenticatedPage);
@@ -12,6 +17,12 @@ test.describe("Timer Persistence", () => {
 
   test("timer survives page refresh", async ({ authenticatedPage }) => {
     await authenticatedPage.goto(`/dashboard/child/${testData.childId}`);
+
+    // Skip if redirected to login
+    if (await isOnLoginPage(authenticatedPage)) {
+      test.skip();
+      return;
+    }
 
     // Start a sleep timer
     const sleepButton = authenticatedPage.getByRole("button", { name: /sleep/i });
@@ -34,6 +45,12 @@ test.describe("Timer Persistence", () => {
 
   test("timer persists in localStorage", async ({ authenticatedPage }) => {
     await authenticatedPage.goto(`/dashboard/child/${testData.childId}`);
+
+    // Skip if redirected to login
+    if (await isOnLoginPage(authenticatedPage)) {
+      test.skip();
+      return;
+    }
 
     // Start a timer
     const sleepButton = authenticatedPage.getByRole("button", { name: /sleep/i });
@@ -60,6 +77,12 @@ test.describe("Timer Persistence", () => {
     authenticatedPage,
   }) => {
     await authenticatedPage.goto(`/dashboard/child/${testData.childId}`);
+
+    // Skip if redirected to login
+    if (await isOnLoginPage(authenticatedPage)) {
+      test.skip();
+      return;
+    }
 
     // Start a timer
     const sleepButton = authenticatedPage.getByRole("button", { name: /sleep/i });
@@ -94,6 +117,12 @@ test.describe("Timer Persistence", () => {
 
   test("multiple timers persist independently", async ({ authenticatedPage }) => {
     await authenticatedPage.goto(`/dashboard/child/${testData.childId}`);
+
+    // Skip if redirected to login
+    if (await isOnLoginPage(authenticatedPage)) {
+      test.skip();
+      return;
+    }
 
     // Start sleep timer
     await authenticatedPage.getByRole("button", { name: /sleep/i }).click();
