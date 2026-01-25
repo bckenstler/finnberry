@@ -1,0 +1,374 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================================
+// Auth Models (NextAuth.js)
+// ============================================================================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  accounts          Account[]
+  sessions          Session[]
+  householdMemberships HouseholdMember[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ============================================================================
+// Household & Children
+// ============================================================================
+
+model Household {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  members  HouseholdMember[]
+  children Child[]
+  invites  HouseholdInvite[]
+
+  @@map("households")
+}
+
+enum HouseholdRole {
+  OWNER
+  ADMIN
+  CAREGIVER
+  VIEWER
+}
+
+model HouseholdMember {
+  id          String        @id @default(cuid())
+  householdId String        @map("household_id")
+  userId      String        @map("user_id")
+  role        HouseholdRole @default(CAREGIVER)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, userId])
+  @@map("household_members")
+}
+
+model HouseholdInvite {
+  id          String   @id @default(cuid())
+  householdId String   @map("household_id")
+  email       String
+  role        HouseholdRole @default(CAREGIVER)
+  token       String   @unique @default(cuid())
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@map("household_invites")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+model Child {
+  id          String   @id @default(cuid())
+  householdId String   @map("household_id")
+  name        String
+  birthDate   DateTime @map("birth_date") @db.Date
+  gender      Gender?
+  photo       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  household        Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  sleepRecords     SleepRecord[]
+  feedingRecords   FeedingRecord[]
+  diaperRecords    DiaperRecord[]
+  pumpingRecords   PumpingRecord[]
+  growthRecords    GrowthRecord[]
+  activityRecords  ActivityRecord[]
+  medicines        Medicine[]
+
+  @@map("children")
+}
+
+// ============================================================================
+// Sleep Tracking
+// ============================================================================
+
+enum SleepType {
+  NAP
+  NIGHT
+}
+
+model SleepRecord {
+  id        String    @id @default(cuid())
+  childId   String    @map("child_id")
+  startTime DateTime  @map("start_time")
+  endTime   DateTime? @map("end_time")
+  sleepType SleepType @default(NAP) @map("sleep_type")
+  quality   Int?      // 1-5 rating
+  notes     String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, startTime])
+  @@map("sleep_records")
+}
+
+// ============================================================================
+// Feeding Tracking
+// ============================================================================
+
+enum FeedingType {
+  BREAST
+  BOTTLE
+  SOLIDS
+}
+
+enum BreastSide {
+  LEFT
+  RIGHT
+  BOTH
+}
+
+model FeedingRecord {
+  id          String       @id @default(cuid())
+  childId     String       @map("child_id")
+  feedingType FeedingType  @map("feeding_type")
+  startTime   DateTime     @map("start_time")
+  endTime     DateTime?    @map("end_time")
+
+  // Breastfeeding specific
+  side        BreastSide?
+
+  // Bottle specific
+  amountMl    Int?         @map("amount_ml")
+
+  // Solids specific
+  foodItems   String[]     @map("food_items")
+
+  notes       String?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, startTime])
+  @@map("feeding_records")
+}
+
+// ============================================================================
+// Diaper Tracking
+// ============================================================================
+
+enum DiaperType {
+  WET
+  DIRTY
+  BOTH
+  DRY
+}
+
+enum DiaperColor {
+  YELLOW
+  GREEN
+  BROWN
+  BLACK
+  RED
+  WHITE
+  OTHER
+}
+
+enum DiaperConsistency {
+  WATERY
+  LOOSE
+  SOFT
+  FORMED
+  HARD
+}
+
+model DiaperRecord {
+  id          String            @id @default(cuid())
+  childId     String            @map("child_id")
+  time        DateTime
+  diaperType  DiaperType        @map("diaper_type")
+  color       DiaperColor?
+  consistency DiaperConsistency?
+  notes       String?
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, time])
+  @@map("diaper_records")
+}
+
+// ============================================================================
+// Pumping Tracking (Post-MVP)
+// ============================================================================
+
+model PumpingRecord {
+  id        String     @id @default(cuid())
+  childId   String     @map("child_id")
+  startTime DateTime   @map("start_time")
+  endTime   DateTime?  @map("end_time")
+  amountMl  Int?       @map("amount_ml")
+  side      BreastSide?
+  notes     String?
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, startTime])
+  @@map("pumping_records")
+}
+
+// ============================================================================
+// Growth Tracking (Post-MVP)
+// ============================================================================
+
+model GrowthRecord {
+  id                  String   @id @default(cuid())
+  childId             String   @map("child_id")
+  date                DateTime @db.Date
+  weightKg            Float?   @map("weight_kg")
+  heightCm            Float?   @map("height_cm")
+  headCircumferenceCm Float?   @map("head_circumference_cm")
+  notes               String?
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, date])
+  @@map("growth_records")
+}
+
+// ============================================================================
+// Activity Tracking (Post-MVP)
+// ============================================================================
+
+enum ActivityType {
+  TUMMY_TIME
+  BATH
+  OUTDOOR_PLAY
+  INDOOR_PLAY
+  SCREEN_TIME
+  SKIN_TO_SKIN
+  STORYTIME
+  TEETH_BRUSHING
+  OTHER
+}
+
+model ActivityRecord {
+  id           String       @id @default(cuid())
+  childId      String       @map("child_id")
+  activityType ActivityType @map("activity_type")
+  startTime    DateTime     @map("start_time")
+  endTime      DateTime?    @map("end_time")
+  notes        String?
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, startTime])
+  @@map("activity_records")
+}
+
+// ============================================================================
+// Medicine Tracking (Post-MVP)
+// ============================================================================
+
+model Medicine {
+  id        String   @id @default(cuid())
+  childId   String   @map("child_id")
+  name      String
+  dosage    String
+  frequency String?
+  notes     String?
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  child   Child            @relation(fields: [childId], references: [id], onDelete: Cascade)
+  records MedicineRecord[]
+
+  @@map("medicines")
+}
+
+model MedicineRecord {
+  id          String   @id @default(cuid())
+  medicineId  String   @map("medicine_id")
+  time        DateTime
+  dosageGiven String?  @map("dosage_given")
+  skipped     Boolean  @default(false)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  medicine Medicine @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@index([medicineId, time])
+  @@map("medicine_records")
+}
