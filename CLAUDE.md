@@ -152,14 +152,14 @@ Key models in `packages/db/prisma/schema.prisma`:
 
 ## Environment Variables
 
-Required in `.env`:
+Create `.env` in `apps/web/` (see `apps/web/.env.example`):
 ```
 DATABASE_URL=            # Supabase PostgreSQL connection
 DIRECT_URL=              # Direct connection (for migrations)
-NEXTAUTH_SECRET=         # Generate with: openssl rand -base64 32
-NEXTAUTH_URL=            # http://localhost:3000 for dev
+AUTH_SECRET=             # Generate with: openssl rand -base64 32
 
 # Optional
+NEXTAUTH_URL=            # http://localhost:3000 for dev (auto-detected if not set)
 GOOGLE_CLIENT_ID=        # For Google OAuth
 GOOGLE_CLIENT_SECRET=
 NEXT_PUBLIC_SUPABASE_URL=

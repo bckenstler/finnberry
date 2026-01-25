@@ -4,19 +4,17 @@ import Google from "next-auth/providers/google";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma } from "@finnberry/db";
 
-const providers = [
-  Nodemailer({
-    server: {
-      host: process.env.EMAIL_SERVER_HOST,
-      port: Number(process.env.EMAIL_SERVER_PORT),
-      auth: {
-        user: process.env.EMAIL_SERVER_USER,
-        pass: process.env.EMAIL_SERVER_PASSWORD,
-      },
-    },
-    from: process.env.EMAIL_FROM,
-  }),
-];
+const providers: Parameters<typeof NextAuth>[0]["providers"] = [];
+
+// Only add Nodemailer if email server is configured
+if (process.env.EMAIL_SERVER) {
+  providers.push(
+    Nodemailer({
+      server: process.env.EMAIL_SERVER,
+      from: process.env.EMAIL_FROM,
+    })
+  );
+}
 
 // Only add Google OAuth if credentials are configured
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
