@@ -49,6 +49,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: {
     strategy: "database",
   },
+  // Only trust Host header in development for convenience
+  // In production, NEXTAUTH_URL must be explicitly set for security
+  trustHost: process.env.NODE_ENV === "development",
 });
 
 export type Session = Awaited<ReturnType<typeof auth>>;

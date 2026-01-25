@@ -85,6 +85,48 @@ finnberry/
 
 The app will be available at `http://localhost:3000`.
 
+### Accessing from Other Devices
+
+#### Development Mode
+
+In development (`NODE_ENV=development`), the app automatically detects the host from request headers for convenience:
+
+- **Localhost**: Works at `http://localhost:3000`
+- **LAN access**: Works at `http://<your-local-ip>:3000` (e.g., from your phone)
+- **Test server**: Works at `http://<server-ip>:3000`
+
+Magic links will automatically use the correct URL you accessed the app from.
+
+#### Production/Self-Hosted Deployment
+
+**IMPORTANT**: For production or when exposing to the internet, you **must** set `NEXTAUTH_URL` explicitly in your `.env` file for security:
+
+```bash
+# For a home server on your LAN
+NEXTAUTH_URL="http://192.168.1.100:3000"
+
+# For a cloud server (EC2, DigitalOcean, etc.)
+NEXTAUTH_URL="http://your-server-ip:3000"
+
+# For production with a domain
+NEXTAUTH_URL="https://finnberry.yourdomain.com"
+```
+
+This prevents Host header injection attacks.
+
+#### Network Access
+
+**For remote servers (e.g., EC2)**:
+- Open port 3000 in your security group/firewall
+- Set `NEXTAUTH_URL` to your server's public IP or domain
+- Consider using a reverse proxy (nginx/caddy) with SSL for internet-facing deployments
+
+**Security Best Practices**:
+- Use HTTPS in production (via reverse proxy with Let's Encrypt)
+- Don't expose the app directly to the internet without proper security
+- Use strong passwords for database and `NEXTAUTH_SECRET`
+- Keep dependencies updated
+
 ## MCP Server
 
 The MCP server allows AI agents (like Claude) to interact with your baby tracking data.
