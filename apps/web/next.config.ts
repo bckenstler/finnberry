@@ -7,9 +7,7 @@ const nextConfig: NextConfig = {
     "@finnberry/schemas",
     "@finnberry/utils",
   ],
-  experimental: {
-    typedRoutes: true,
-  },
+  typedRoutes: true,
 };
 
 export default nextConfig;
