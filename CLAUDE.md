@@ -87,6 +87,73 @@ pnpm --filter @finnberry/db db:studio  # Open Prisma Studio
 # Individual apps
 pnpm --filter @finnberry/web dev       # Run only web app
 pnpm --filter @finnberry/mcp-server build  # Build MCP server
+
+# Testing
+pnpm test                   # Run all tests (Vitest)
+pnpm test:unit              # Run utils + schemas tests only
+pnpm test:integration       # Run API integration tests only
+pnpm test:components        # Run web component tests only
+pnpm test:e2e               # Run Playwright E2E tests (requires dev server)
+pnpm test:coverage          # Run tests with coverage report
+```
+
+## Testing
+
+### Test Structure
+
+```
+finnberry/
+├── packages/
+│   ├── utils/src/*.test.ts        # Unit tests for utilities
+│   ├── schemas/src/*.test.ts      # Schema validation tests
+│   └── api/src/
+│       ├── test/                   # Test setup and helpers
+│       │   ├── setup.ts            # Prisma mock setup
+│       │   └── helpers.ts          # Test context creators, factories
+│       ├── trpc.test.ts            # Middleware tests
+│       └── routers/*.test.ts       # Router integration tests
+└── apps/web/
+    ├── src/stores/*.test.ts        # Zustand store tests
+    └── e2e/                         # Playwright E2E tests
+        ├── fixtures/                # Auth and database fixtures
+        └── *.spec.ts                # Test specifications
+```
+
+### Writing API Tests
+
+API tests use mocked Prisma. Import helpers from `test/helpers.ts`:
+
+```typescript
+import { prismaMock } from "../test/setup";
+import { createTestContext, createTestMembership, TEST_IDS } from "../test/helpers";
+import { createCallerFactory } from "../trpc";
+import { myRouter } from "./my-router";
+
+const createCaller = createCallerFactory(myRouter);
+
+it("does something", async () => {
+  const ctx = createTestContext();
+  const caller = createCaller(ctx);
+
+  // Setup mocks
+  prismaMock.householdMember.findUnique.mockResolvedValue(
+    createTestMembership({ role: "OWNER" }) as never
+  );
+
+  // Call procedure
+  const result = await caller.myProcedure({ ... });
+
+  // Assert
+  expect(result).toBeDefined();
+});
+```
+
+### Test IDs
+
+Use valid CUID format IDs from `TEST_IDS` constant:
+```typescript
+import { TEST_IDS } from "../test/helpers";
+// TEST_IDS.userId, TEST_IDS.householdId, TEST_IDS.childId, etc.
 ```
 
 ## Key Patterns
