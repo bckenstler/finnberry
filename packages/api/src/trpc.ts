@@ -78,12 +78,14 @@ const enforceHouseholdAccess = t.middleware(async ({ ctx, next, rawInput }) => {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
 
-  const input = rawInput as { householdId?: string; childId?: string };
+  const input = (rawInput ?? {}) as { householdId?: string; childId?: string; id?: string };
   let householdId = input.householdId;
 
-  if (!householdId && input.childId) {
+  // Check for childId or id (some schemas use 'id' for child lookups)
+  const childId = input.childId || input.id;
+  if (!householdId && childId) {
     const child = await ctx.prisma.child.findUnique({
-      where: { id: input.childId },
+      where: { id: childId },
       select: { householdId: true },
     });
     householdId = child?.householdId;
