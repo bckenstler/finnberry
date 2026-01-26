@@ -1,35 +1,45 @@
 import { test as base, type Page, type BrowserContext } from "@playwright/test";
+import { seedTestData, cleanupTestData, testData, type TestData } from "./database";
 
-// Test user credentials
-export const testUser = {
-  email: "test@example.com",
-  name: "Test User",
-};
+// Get base URL from environment or default
+function getBaseUrl(): string {
+  return process.env.BASE_URL || "http://localhost:3000";
+}
 
 // Extend the base test with authenticated fixtures
 export const test = base.extend<{
   authenticatedPage: Page;
   authenticatedContext: BrowserContext;
+  testData: TestData;
 }>({
-  authenticatedContext: async ({ browser }, use) => {
-    // Create a new browser context with session storage
+  // Seed test data before each test
+  testData: async ({}, use) => {
+    // Create a temporary page just for seeding (we need to call the API)
+    const data = await seedTestData(null as unknown as Page);
+    await use(data);
+    // Cleanup happens in afterEach of individual test files
+  },
+
+  authenticatedContext: async ({ browser, testData }, use) => {
+    const baseUrl = getBaseUrl();
+    const domain = new URL(baseUrl).hostname;
+
+    // Create a new browser context with the real session cookie
     const context = await browser.newContext({
       storageState: {
-        cookies: [],
-        origins: [
+        cookies: [
           {
-            origin: process.env.BASE_URL || "http://localhost:3000",
-            localStorage: [
-              {
-                name: "finnberry-test-auth",
-                value: JSON.stringify({
-                  user: testUser,
-                  expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-                }),
-              },
-            ],
+            name: "authjs.session-token",
+            value: testData.session.sessionToken,
+            domain,
+            path: "/",
+            expires: Math.floor(Date.now() / 1000) + 60 * 60 * 24, // 24 hours
+            httpOnly: true,
+            secure: false,
+            sameSite: "Lax",
           },
         ],
+        origins: [],
       },
     });
 
@@ -45,38 +55,32 @@ export const test = base.extend<{
 
 export { expect } from "@playwright/test";
 
-// Helper to bypass login for testing
-export async function mockAuthentication(page: Page) {
-  // Set authentication cookies/localStorage that the app recognizes
+// Re-export testData for use in tests
+export { testData };
+
+// Helper to set up authentication on an existing page
+export async function setupAuthentication(
+  page: Page,
+  sessionToken: string
+): Promise<void> {
+  const baseUrl = getBaseUrl();
+  const domain = new URL(baseUrl).hostname;
+
   await page.context().addCookies([
     {
       name: "authjs.session-token",
-      value: "test-session-token",
-      domain: "localhost",
+      value: sessionToken,
+      domain,
       path: "/",
-      expires: Date.now() / 1000 + 60 * 60 * 24, // 24 hours
+      expires: Math.floor(Date.now() / 1000) + 60 * 60 * 24,
       httpOnly: true,
       secure: false,
       sameSite: "Lax",
     },
   ]);
-
-  // Also set localStorage for client-side checks
-  await page.evaluate((user) => {
-    localStorage.setItem(
-      "finnberry-auth",
-      JSON.stringify({
-        user,
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-      })
-    );
-  }, testUser);
 }
 
 // Helper to clear authentication
-export async function clearAuthentication(page: Page) {
+export async function clearAuthentication(page: Page): Promise<void> {
   await page.context().clearCookies();
-  await page.evaluate(() => {
-    localStorage.removeItem("finnberry-auth");
-  });
 }

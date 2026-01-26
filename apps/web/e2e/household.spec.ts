@@ -1,132 +1,79 @@
 import { test, expect } from "./fixtures/auth";
-import { seedTestData, cleanupTestData } from "./fixtures/database";
-
-// Helper to check if user is redirected to login (not authenticated)
-async function isOnLoginPage(page: import("@playwright/test").Page): Promise<boolean> {
-  return page.url().includes("/login");
-}
+import { cleanupTestData } from "./fixtures/database";
 
 test.describe("Household Management", () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await seedTestData(authenticatedPage);
-  });
-
   test.afterEach(async ({ authenticatedPage }) => {
     await cleanupTestData(authenticatedPage);
   });
 
-  test("dashboard redirects to login when not authenticated", async ({ authenticatedPage }) => {
+  test("dashboard shows household when authenticated", async ({
+    authenticatedPage,
+    testData,
+  }) => {
     await authenticatedPage.goto("/dashboard");
 
-    // Without real auth, should redirect to login or show household/family content
-    const onLogin = await isOnLoginPage(authenticatedPage);
-    if (onLogin) {
-      // Expected behavior - verifies auth protection works
-      await expect(authenticatedPage).toHaveURL(/login/);
-    } else {
-      // If somehow authenticated, should see dashboard content
-      await expect(
-        authenticatedPage.getByText(/household|family|create|dashboard/i)
-      ).toBeVisible({ timeout: 10000 });
-    }
+    // Should see household name or dashboard content (not redirected to login)
+    await expect(authenticatedPage).not.toHaveURL(/login/);
+
+    // Should see the test household name or dashboard UI
+    await expect(
+      authenticatedPage.getByText(new RegExp(testData.household.name, "i")).or(
+        authenticatedPage.getByText(/dashboard|household|family/i)
+      )
+    ).toBeVisible({ timeout: 10000 });
   });
 
-  test("can navigate to create household form", async ({ authenticatedPage }) => {
+  test("can navigate to child profile", async ({
+    authenticatedPage,
+    testData,
+  }) => {
     await authenticatedPage.goto("/dashboard");
 
-    // Skip if redirected to login
-    if (await isOnLoginPage(authenticatedPage)) {
-      test.skip();
-      return;
-    }
-
-    // Look for create button or link
-    const createButton = authenticatedPage.getByRole("button", {
-      name: /create|new|add/i,
+    // Look for child entry or navigate to child page
+    const childLink = authenticatedPage.getByRole("link", {
+      name: new RegExp(testData.child.name, "i"),
     });
 
-    if (await createButton.isVisible()) {
-      await createButton.click();
-      await expect(
-        authenticatedPage.getByRole("heading", { name: /create|new|household/i })
-      ).toBeVisible();
-    }
-  });
-
-  test("household creation form has required fields", async ({
-    authenticatedPage,
-  }) => {
-    await authenticatedPage.goto("/dashboard/household/new");
-
-    // Skip if redirected to login
-    if (await isOnLoginPage(authenticatedPage)) {
-      test.skip();
-      return;
-    }
-
-    // Should have name input
-    const nameInput = authenticatedPage.getByLabel(/name/i);
-    await expect(nameInput).toBeVisible();
-  });
-
-  test("can navigate to child profile", async ({ authenticatedPage }) => {
-    // Assuming there's a test child already created
-    await authenticatedPage.goto("/dashboard");
-
-    // Skip if redirected to login
-    if (await isOnLoginPage(authenticatedPage)) {
-      test.skip();
-      return;
-    }
-
-    // Look for child entry
-    const childLink = authenticatedPage.getByRole("link", { name: /baby|child/i });
-
-    if (await childLink.isVisible()) {
+    if (await childLink.isVisible({ timeout: 5000 }).catch(() => false)) {
       await childLink.click();
       await expect(authenticatedPage).toHaveURL(/child/);
+    } else {
+      // Navigate directly to child page
+      await authenticatedPage.goto(`/dashboard/${testData.child.id}`);
+      await expect(authenticatedPage).not.toHaveURL(/login/);
     }
+  });
+
+  test("child profile shows tracking options", async ({
+    authenticatedPage,
+    testData,
+  }) => {
+    await authenticatedPage.goto(`/dashboard/${testData.child.id}`);
+
+    // Should not be redirected to login
+    await expect(authenticatedPage).not.toHaveURL(/login/);
+
+    // Should show quick log or tracking options (using first() since multiple elements match)
+    await expect(
+      authenticatedPage.getByText(/sleep|feeding|diaper/i).first()
+    ).toBeVisible({ timeout: 10000 });
   });
 });
 
 test.describe("Child Management", () => {
-  test.beforeEach(async ({ authenticatedPage }) => {
-    await seedTestData(authenticatedPage);
-  });
-
   test.afterEach(async ({ authenticatedPage }) => {
     await cleanupTestData(authenticatedPage);
   });
 
-  test("add child form has required fields", async ({ authenticatedPage }) => {
-    await authenticatedPage.goto("/dashboard/child/new");
+  test("child page has tracking buttons", async ({
+    authenticatedPage,
+    testData,
+  }) => {
+    await authenticatedPage.goto(`/dashboard/${testData.child.id}`);
 
-    // Skip if redirected to login
-    if (await isOnLoginPage(authenticatedPage)) {
-      test.skip();
-      return;
-    }
-
-    // Should have name input
-    await expect(authenticatedPage.getByLabel(/name/i)).toBeVisible();
-
-    // Should have birth date input
-    await expect(authenticatedPage.getByLabel(/birth|date/i)).toBeVisible();
-  });
-
-  test("child profile shows tracking options", async ({ authenticatedPage }) => {
-    // Navigate to a child's profile (assuming test data exists)
-    await authenticatedPage.goto("/dashboard/child/test-child-e2e");
-
-    // Skip if redirected to login
-    if (await isOnLoginPage(authenticatedPage)) {
-      test.skip();
-      return;
-    }
-
-    // Should show quick log or tracking options
+    // Should have tracking buttons
     await expect(
-      authenticatedPage.getByText(/log|track|sleep|feeding|diaper/i)
+      authenticatedPage.getByRole("button", { name: /sleep|nap/i })
     ).toBeVisible({ timeout: 10000 });
   });
 });

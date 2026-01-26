@@ -2,10 +2,12 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: true,
+  // Run tests serially to avoid race conditions in test data
+  fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Use 1 worker to avoid race conditions (tests share database)
+  workers: 1,
   reporter: "html",
   use: {
     baseURL: process.env.BASE_URL || "http://localhost:3000",
@@ -15,20 +17,12 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      // Only run auth tests by default (tests that don't require auth setup)
-      testMatch: /auth\.spec\.ts/,
-    },
-    {
-      name: "chromium-authenticated",
-      use: { ...devices["Desktop Chrome"] },
-      // Tests requiring authentication infrastructure
-      testMatch: /(?:household|tracking|timer-persistence|realtime-sync)\.spec\.ts/,
-      // These tests require proper auth setup and test database
-      // Run with: npx playwright test --project=chromium-authenticated
+      // Run all E2E tests (auth tests + authenticated tests)
     },
     {
       name: "firefox",
       use: { ...devices["Desktop Firefox"] },
+      // Firefox/webkit only run auth tests (faster CI)
       testMatch: /auth\.spec\.ts/,
     },
     {

@@ -1,76 +1,141 @@
 import { type Page } from "@playwright/test";
 
-// Test data IDs (would be created in a real test database)
-export const testData = {
-  householdId: "test-household-e2e",
-  userId: "test-user-e2e",
-  childId: "test-child-e2e",
-  childName: "Test Baby",
-};
+const TEST_PREFIX = "e2e-test";
 
-// Seed test data via API or direct database access
-export async function seedTestData(page: Page) {
-  // In a real implementation, this would:
-  // 1. Call a test API endpoint to create test data
-  // 2. Or directly insert into the database
-  // 3. Or use Prisma client to seed
+// Test data structure
+export interface TestData {
+  user: {
+    id: string;
+    email: string;
+    name: string;
+  };
+  session: {
+    sessionToken: string;
+  };
+  household: {
+    id: string;
+    name: string;
+  };
+  child: {
+    id: string;
+    name: string;
+  };
+}
 
-  // Navigate to the app first to access localStorage
-  // (can't access localStorage on about:blank)
-  const currentUrl = page.url();
-  if (currentUrl === "about:blank") {
-    await page.goto("/");
-    await page.waitForLoadState("domcontentloaded");
+// Shared test data reference (populated by seedTestData)
+export let testData: TestData;
+
+// Get base URL from environment or default
+function getBaseUrl(): string {
+  return process.env.BASE_URL || "http://localhost:3000";
+}
+
+// Call the test seed API
+async function callTestApi(action: string, data: Record<string, unknown> = {}) {
+  const baseUrl = getBaseUrl();
+  const response = await fetch(`${baseUrl}/api/test/seed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...data }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Test API error (${action}): ${error}`);
   }
 
-  // For now, store test data references in localStorage
-  await page.evaluate((data) => {
-    localStorage.setItem("finnberry-test-data", JSON.stringify(data));
-  }, testData);
+  return response.json();
+}
+
+// Seed test data via API
+export async function seedTestData(_page: Page): Promise<TestData> {
+  const timestamp = Date.now();
+  const email = `${TEST_PREFIX}-${timestamp}@example.com`;
+  const userName = `${TEST_PREFIX} User ${timestamp}`;
+  const householdName = `${TEST_PREFIX} Household ${timestamp}`;
+  const childName = `${TEST_PREFIX} Baby ${timestamp}`;
+
+  // Create test user
+  const { user } = await callTestApi("createTestUser", {
+    email,
+    name: userName,
+  });
+
+  // Create session for the user
+  const { sessionToken } = await callTestApi("createTestSession", {
+    userId: user.id,
+  });
+
+  // Create test household with user as owner
+  const { household } = await callTestApi("createTestHousehold", {
+    name: householdName,
+    userId: user.id,
+  });
+
+  // Create test child in household
+  const { child } = await callTestApi("createTestChild", {
+    name: childName,
+    birthDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(), // 6 months ago
+    householdId: household.id,
+    gender: "OTHER",
+  });
+
+  // Store test data for use in tests
+  testData = {
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+    },
+    session: {
+      sessionToken,
+    },
+    household: {
+      id: household.id,
+      name: household.name,
+    },
+    child: {
+      id: child.id,
+      name: child.name,
+    },
+  };
 
   return testData;
 }
 
 // Cleanup test data after tests
-export async function cleanupTestData(page: Page) {
-  // In a real implementation, this would:
-  // 1. Delete test records from the database
-  // 2. Or call a test API endpoint for cleanup
-
-  // Skip if page is already closed or on about:blank
+export async function cleanupTestData(_page: Page): Promise<void> {
   try {
-    const currentUrl = page.url();
-    if (currentUrl !== "about:blank") {
-      await page.evaluate(() => {
-        localStorage.removeItem("finnberry-test-data");
-        localStorage.removeItem("finnberry-timers");
-      });
-    }
-  } catch {
-    // Page may already be closed, ignore
+    await callTestApi("cleanup", { prefix: TEST_PREFIX });
+  } catch (error) {
+    // Ignore cleanup errors - data may already be cleaned up
+    console.warn("Cleanup warning:", error);
   }
 }
 
-// Helper to create test household
-export async function createTestHousehold(_page: Page, name = "Test Household") {
-  // Would call API to create household
-  return {
-    id: `household-${Date.now()}`,
-    name,
-  };
+// Helper to create additional test household
+export async function createTestHousehold(
+  _page: Page,
+  name: string,
+  userId: string
+) {
+  const { household } = await callTestApi("createTestHousehold", {
+    name: `${TEST_PREFIX} ${name}`,
+    userId,
+  });
+  return household;
 }
 
-// Helper to create test child
+// Helper to create additional test child
 export async function createTestChild(
   _page: Page,
   householdId: string,
-  name = "Test Baby"
+  name: string
 ) {
-  // Would call API to create child
-  return {
-    id: `child-${Date.now()}`,
+  const { child } = await callTestApi("createTestChild", {
+    name: `${TEST_PREFIX} ${name}`,
+    birthDate: new Date(Date.now() - 180 * 24 * 60 * 60 * 1000).toISOString(),
     householdId,
-    name,
-    birthDate: new Date("2024-01-01"),
-  };
+  });
+  return child;
 }
