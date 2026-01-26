@@ -261,6 +261,12 @@ enum DiaperSize {
   SIZE_6
 }
 
+enum DiaperAmount {
+  SMALL
+  MEDIUM
+  LARGE
+}
+
 model DiaperRecord {
   id          String            @id @default(cuid())
   childId     String            @map("child_id")
@@ -269,6 +275,7 @@ model DiaperRecord {
   color       DiaperColor?
   consistency DiaperConsistency?
   size        DiaperSize?
+  amount      DiaperAmount?
   notes       String?
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
