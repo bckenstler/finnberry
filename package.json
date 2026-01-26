@@ -9,11 +9,19 @@
     "db:generate": "turbo db:generate",
     "db:push": "turbo db:push",
     "db:migrate": "turbo db:migrate",
-    "clean": "turbo clean && rm -rf node_modules"
+    "clean": "turbo clean && rm -rf node_modules",
+    "test": "vitest",
+    "test:unit": "vitest --project=@finnberry/utils --project=@finnberry/schemas",
+    "test:integration": "vitest --project=@finnberry/api",
+    "test:components": "vitest --project=@finnberry/web",
+    "test:e2e": "pnpm --filter @finnberry/web exec playwright test",
+    "test:coverage": "vitest --coverage"
   },
   "devDependencies": {
     "turbo": "^2.3.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0",
+    "@vitest/coverage-v8": "^2.1.0"
   },
   "packageManager": "pnpm@9.15.0",
   "engines": {
