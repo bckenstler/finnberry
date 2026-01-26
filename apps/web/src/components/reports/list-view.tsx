@@ -17,10 +17,13 @@ export function ListView({ childId }: ListViewProps) {
     startOfWeek(new Date(), { weekStartsOn: 0 })
   );
 
+  const { data: childData } = trpc.child.get.useQuery({ id: childId });
   const { data, isLoading } = trpc.timeline.getList.useQuery({
     childId,
     weekStart,
   });
+
+  const childName = childData?.name ?? "Baby";
 
   const handlePrevWeek = () => {
     setWeekStart((prev) => addDays(prev, -7));
@@ -72,6 +75,7 @@ export function ListView({ childId }: ListViewProps) {
                       key={`${activity.type}-${activity.record.id}`}
                       activity={activity}
                       childId={childId}
+                      childName={childName}
                     />
                   ))}
                 </div>

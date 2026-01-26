@@ -128,18 +128,13 @@ export function getTimelineHourLabels(
   dayStartHour: number = DAY_START_HOUR
 ): string[] {
   const labels: string[] = [];
-  for (let i = 0; i < 24; i += 4) {
+  // Show every hour from day start to day start next day (25 labels total)
+  for (let i = 0; i <= 24; i++) {
     let hour = (dayStartHour + i) % 24;
     const ampm = hour >= 12 ? "pm" : "am";
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     labels.push(`${displayHour}${ampm}`);
   }
-  // Add end label
-  const endHour = dayStartHour;
-  const endAmpm = endHour >= 12 ? "pm" : "am";
-  const endDisplayHour =
-    endHour === 0 ? 12 : endHour > 12 ? endHour - 12 : endHour;
-  labels.push(`${endDisplayHour}${endAmpm}`);
 
   return labels;
 }
