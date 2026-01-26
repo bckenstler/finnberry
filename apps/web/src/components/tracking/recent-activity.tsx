@@ -44,7 +44,7 @@ export function RecentActivity({ childId }: RecentActivityProps) {
       type: "sleep",
       time: record.startTime,
       details: record.sleepType === "NAP" ? "Nap" : "Night Sleep",
-      subDetails: duration ? formatDuration(duration) : "In progress",
+      subDetails: duration !== null ? formatDuration(duration) : "In progress",
     });
   });
 

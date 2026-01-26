@@ -22,7 +22,7 @@ export function ActiveTimers({ childId }: ActiveTimersProps) {
 
   const endSleep = trpc.sleep.end.useMutation({
     onSuccess: () => {
-      utils.sleep.list.invalidate({ childId });
+      utils.sleep.list.invalidate();
       utils.sleep.summary.invalidate({ childId });
       toast({ title: "Sleep recorded" });
     },
@@ -30,7 +30,7 @@ export function ActiveTimers({ childId }: ActiveTimersProps) {
 
   const endBreastfeeding = trpc.feeding.endBreastfeeding.useMutation({
     onSuccess: () => {
-      utils.feeding.list.invalidate({ childId });
+      utils.feeding.list.invalidate();
       utils.feeding.summary.invalidate({ childId });
       toast({ title: "Feeding recorded" });
     },

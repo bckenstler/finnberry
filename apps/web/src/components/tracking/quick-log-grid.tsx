@@ -44,7 +44,7 @@ export function QuickLogGrid({ childId }: QuickLogGridProps) {
 
   const endSleep = trpc.sleep.end.useMutation({
     onSuccess: () => {
-      utils.sleep.list.invalidate({ childId });
+      utils.sleep.list.invalidate();
       utils.sleep.getActive.invalidate({ childId });
       utils.sleep.summary.invalidate({ childId });
       toast({ title: "Sleep recorded" });
@@ -60,7 +60,7 @@ export function QuickLogGrid({ childId }: QuickLogGridProps) {
 
   const endBreastfeeding = trpc.feeding.endBreastfeeding.useMutation({
     onSuccess: () => {
-      utils.feeding.list.invalidate({ childId });
+      utils.feeding.list.invalidate();
       utils.feeding.getActive.invalidate({ childId });
       utils.feeding.summary.invalidate({ childId });
       toast({ title: "Feeding recorded" });
@@ -69,7 +69,7 @@ export function QuickLogGrid({ childId }: QuickLogGridProps) {
 
   const logDiaper = trpc.diaper.log.useMutation({
     onSuccess: () => {
-      utils.diaper.list.invalidate({ childId });
+      utils.diaper.list.invalidate();
       utils.diaper.summary.invalidate({ childId });
       toast({ title: "Diaper change logged" });
     },
@@ -77,7 +77,7 @@ export function QuickLogGrid({ childId }: QuickLogGridProps) {
 
   const logBottle = trpc.feeding.logBottle.useMutation({
     onSuccess: () => {
-      utils.feeding.list.invalidate({ childId });
+      utils.feeding.list.invalidate();
       utils.feeding.summary.invalidate({ childId });
       toast({ title: "Bottle feeding logged" });
     },

@@ -56,10 +56,12 @@ export function useTimer(childId: string, type: TimerType) {
 
   const update = useCallback(
     (updates: Partial<ActiveTimer>) => {
-      if (!activeTimer) return;
-      updateTimer(activeTimer.id, updates);
+      // Get current timer from store (not stale closure)
+      const currentTimer = getTimerByType(childId, type);
+      if (!currentTimer) return;
+      updateTimer(currentTimer.id, updates);
     },
-    [updateTimer, activeTimer]
+    [updateTimer, getTimerByType, childId, type]
   );
 
   return {

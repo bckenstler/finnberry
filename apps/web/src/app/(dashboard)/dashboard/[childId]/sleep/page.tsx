@@ -54,7 +54,7 @@ export default function SleepPage({
 
   const deleteSleep = trpc.sleep.delete.useMutation({
     onSuccess: () => {
-      utils.sleep.list.invalidate({ childId });
+      utils.sleep.list.invalidate();
       utils.sleep.summary.invalidate({ childId });
       toast({ title: "Sleep record deleted" });
     },
@@ -62,7 +62,7 @@ export default function SleepPage({
 
   const logSleep = trpc.sleep.log.useMutation({
     onSuccess: () => {
-      utils.sleep.list.invalidate({ childId });
+      utils.sleep.list.invalidate();
       utils.sleep.summary.invalidate({ childId });
       toast({ title: "Sleep logged" });
     },
@@ -261,7 +261,7 @@ function SleepRecordCard({
         <div className="flex items-center gap-4">
           <div className="text-right">
             <p className="font-mono text-lg">
-              {duration ? formatDuration(duration) : "In progress"}
+              {duration !== null ? formatDuration(duration) : "In progress"}
             </p>
             {record.quality && (
               <p className="text-xs text-muted-foreground">
