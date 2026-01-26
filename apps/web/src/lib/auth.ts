@@ -1,10 +1,10 @@
-import NextAuth from "next-auth";
+import NextAuth, { type NextAuthConfig } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import Google from "next-auth/providers/google";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma } from "@finnberry/db";
 
-const providers: Parameters<typeof NextAuth>[0]["providers"] = [];
+const providers: NextAuthConfig["providers"] = [];
 
 // Only add Nodemailer if email server is configured
 if (process.env.EMAIL_SERVER) {

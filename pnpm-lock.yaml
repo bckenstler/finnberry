@@ -205,6 +205,9 @@ importers:
       '@finnberry/schemas':
         specifier: workspace:*
         version: link:../schemas
+      '@finnberry/utils':
+        specifier: workspace:*
+        version: link:../utils
       '@trpc/server':
         specifier: ^11.0.0-rc.682
         version: 11.8.1(typescript@5.9.3)
