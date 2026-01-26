@@ -397,12 +397,35 @@ function BottleModal({ childId, onClose }: { childId: string; onClose: () => voi
   );
 }
 
+type DiaperSize = "NEWBORN" | "SIZE_1" | "SIZE_2" | "SIZE_3" | "SIZE_4" | "SIZE_5" | "SIZE_6";
+type DiaperColor = "YELLOW" | "GREEN" | "BROWN" | "BLACK" | "OTHER";
+
+const sizeOptions: { value: DiaperSize; label: string }[] = [
+  { value: "NEWBORN", label: "NB" },
+  { value: "SIZE_1", label: "1" },
+  { value: "SIZE_2", label: "2" },
+  { value: "SIZE_3", label: "3" },
+  { value: "SIZE_4", label: "4" },
+  { value: "SIZE_5", label: "5" },
+  { value: "SIZE_6", label: "6" },
+];
+
+const colorOptions: { value: DiaperColor; label: string; color: string }[] = [
+  { value: "YELLOW", label: "Yellow", color: "bg-yellow-400" },
+  { value: "GREEN", label: "Green", color: "bg-green-500" },
+  { value: "BROWN", label: "Brown", color: "bg-amber-700" },
+  { value: "BLACK", label: "Black", color: "bg-gray-900" },
+  { value: "OTHER", label: "Other", color: "bg-gray-400" },
+];
+
 function DiaperModal({ childId, onClose }: { childId: string; onClose: () => void }) {
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
   const [time, setTime] = useState<Date | null>(new Date());
   const [diaperType, setDiaperType] = useState<"WET" | "DIRTY" | "BOTH" | "DRY">("WET");
+  const [size, setSize] = useState<DiaperSize | null>(null);
+  const [color, setColor] = useState<DiaperColor | null>(null);
 
   const logDiaper = trpc.diaper.log.useMutation({
     onSuccess: () => {
@@ -418,6 +441,8 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
       childId,
       diaperType,
       time: time ?? undefined,
+      size: size ?? undefined,
+      color: color ?? undefined,
     });
   };
 
@@ -427,6 +452,8 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
     { value: "BOTH" as const, label: "Mixed", icon: CloudRain },
   ];
 
+  const showColorPicker = diaperType === "DIRTY" || diaperType === "BOTH";
+
   return (
     <>
       <DialogHeader className="p-6 pb-0">
@@ -435,7 +462,7 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
 
       <TimeRow label="Time" value={time} onChange={setTime} />
 
-      <div className="px-6 py-6">
+      <div className="px-6 py-4">
         <div className="flex justify-center gap-4">
           {typeOptions.map((option) => (
             <button
@@ -456,7 +483,46 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
         </div>
       </div>
 
-      <div className="p-6 pt-0">
+      {showColorPicker && (
+        <div className="px-6 py-3 border-t border-border">
+          <p className="text-sm text-muted-foreground mb-2">Color</p>
+          <div className="flex gap-2 justify-center">
+            {colorOptions.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setColor(color === option.value ? null : option.value)}
+                className={`w-10 h-10 rounded-full ${option.color} transition-all ${
+                  color === option.value
+                    ? "ring-2 ring-primary ring-offset-2"
+                    : "opacity-60 hover:opacity-100"
+                }`}
+                title={option.label}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="px-6 py-3 border-t border-border">
+        <p className="text-sm text-muted-foreground mb-2">Size</p>
+        <div className="flex gap-2 justify-center">
+          {sizeOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setSize(size === option.value ? null : option.value)}
+              className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
+                size === option.value
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6 pt-4">
         <Button
           size="lg"
           className="w-full h-14 text-lg"
