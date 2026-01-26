@@ -11,6 +11,27 @@ import {
   feedingTypeToCategory,
   type ActivityCategory,
 } from "@/lib/activity-colors";
+import { Moon, Baby, Milk, Utensils } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+// Custom diaper icon component
+function DiaperIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M4 7c0-1 1-2 2-2h12c1 0 2 1 2 2v4c0 4-3 8-8 8s-8-4-8-8V7z" />
+      <path d="M8 5v2" />
+      <path d="M16 5v2" />
+    </svg>
+  );
+}
 
 interface SleepRecord {
   id: string;
@@ -56,6 +77,7 @@ interface TimelineEvent {
   label: string;
   duration?: string; // Formatted duration for timed events
   column?: number; // For overlapping events
+  icon?: LucideIcon | typeof DiaperIcon; // Icon component for the event
 }
 
 export function TimelineTrack({
@@ -86,6 +108,7 @@ export function TimelineTrack({
       endPos: Math.max(endPos, startPos + 0.25), // Minimum 15min display
       label: record.sleepType === "NIGHT" ? "Night" : "Nap",
       duration,
+      icon: Moon,
     });
   });
 
@@ -102,18 +125,19 @@ export function TimelineTrack({
 
     let label = "";
     let duration: string | undefined;
+    let icon: LucideIcon | typeof DiaperIcon = Baby;
     if (record.feedingType === "BREAST") {
       label = "Breast";
+      icon = Baby;
       if (record.endTime) {
         duration = formatDurationPrecise(record.startTime, record.endTime);
       }
     } else if (record.feedingType === "BOTTLE") {
       label = "Bottle";
-      if (record.amountMl) {
-        label = `${Math.round(record.amountMl / 29.574)}oz`;
-      }
+      icon = Milk;
     } else if (record.feedingType === "SOLIDS") {
       label = "Solids";
+      icon = Utensils;
     }
 
     events.push({
@@ -126,6 +150,7 @@ export function TimelineTrack({
       endPos: Math.max(endPos, startPos + 0.25),
       label,
       duration,
+      icon,
     });
   });
 
@@ -151,6 +176,7 @@ export function TimelineTrack({
       startPos: pos,
       endPos: pos + 0.25, // 15min display width
       label,
+      icon: DiaperIcon,
     });
   });
 
@@ -233,12 +259,17 @@ export function TimelineTrack({
                 minHeight: "20px",
               }}
             >
-              <div className="flex-1 flex items-center justify-between px-2 min-w-0">
-                {event.label && (
-                  <span className="truncate">{event.label}</span>
-                )}
+              <div className="flex-1 flex items-center justify-between px-2 min-w-0 gap-1">
+                <div className="flex items-center gap-1 min-w-0">
+                  {event.icon && (
+                    <event.icon className="h-3.5 w-3.5 flex-shrink-0" />
+                  )}
+                  {event.label && (
+                    <span className="truncate">{event.label}</span>
+                  )}
+                </div>
                 {event.duration && !isSmallBlock && (
-                  <span className="truncate text-[10px] opacity-80 ml-1">{event.duration}</span>
+                  <span className="truncate text-[10px] opacity-80 ml-1 flex-shrink-0">{event.duration}</span>
                 )}
               </div>
             </button>
