@@ -32,11 +32,11 @@ export function DailySummary({ childId }: DailySummaryProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-indigo-100 dark:bg-indigo-950/30">
-            <Moon className="h-8 w-8 text-indigo-500" />
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-indigo-100 dark:bg-indigo-900/50">
+            <Moon className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
             <div className="flex-1">
-              <p className="font-semibold">Sleep</p>
-              <div className="text-sm text-muted-foreground">
+              <p className="font-semibold text-indigo-900 dark:text-indigo-100">Sleep</p>
+              <div className="text-sm text-indigo-700 dark:text-indigo-300">
                 {sleepSummary ? (
                   <>
                     <p>
@@ -55,11 +55,11 @@ export function DailySummary({ childId }: DailySummaryProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-pink-100 dark:bg-pink-950/30">
-            <Baby className="h-8 w-8 text-pink-500" />
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-pink-100 dark:bg-pink-900/50">
+            <Baby className="h-8 w-8 text-pink-600 dark:text-pink-400" />
             <div className="flex-1">
-              <p className="font-semibold">Feeding</p>
-              <div className="text-sm text-muted-foreground">
+              <p className="font-semibold text-pink-900 dark:text-pink-100">Feeding</p>
+              <div className="text-sm text-pink-700 dark:text-pink-300">
                 {feedingSummary ? (
                   <>
                     <p>Total: {feedingSummary.totalFeedings} feedings</p>
@@ -76,11 +76,11 @@ export function DailySummary({ childId }: DailySummaryProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-blue-100 dark:bg-blue-950/30">
-            <Droplets className="h-8 w-8 text-blue-500" />
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-blue-100 dark:bg-blue-900/50">
+            <Droplets className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             <div className="flex-1">
-              <p className="font-semibold">Diapers</p>
-              <div className="text-sm text-muted-foreground">
+              <p className="font-semibold text-blue-900 dark:text-blue-100">Diapers</p>
+              <div className="text-sm text-blue-700 dark:text-blue-300">
                 {diaperSummary ? (
                   <>
                     <p>Total: {diaperSummary.totalChanges} changes</p>
