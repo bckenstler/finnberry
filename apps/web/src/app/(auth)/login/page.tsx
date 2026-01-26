@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { signIn, getProviders } from "next-auth/react";
-import type { ClientSafeProvider, LiteralUnion } from "next-auth/react";
-import type { BuiltInProviderType } from "next-auth/providers";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +12,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
-  const [providers, setProviders] = useState<Record<LiteralUnion<BuiltInProviderType>, ClientSafeProvider> | null>(null);
+  const [providers, setProviders] = useState<Awaited<ReturnType<typeof getProviders>>>(null);
 
   useEffect(() => {
     getProviders().then((providers) => setProviders(providers));

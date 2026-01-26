@@ -23,3 +23,13 @@ export function capitalize(str: string): string {
 export function pluralize(count: number, singular: string, plural?: string): string {
   return count === 1 ? singular : (plural ?? `${singular}s`);
 }
+
+const ML_PER_OZ = 29.5735;
+
+export function mlToOz(ml: number): number {
+  return Math.round((ml / ML_PER_OZ) * 10) / 10;
+}
+
+export function ozToMl(oz: number): number {
+  return Math.round(oz * ML_PER_OZ);
+}

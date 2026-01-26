@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { LogOut, Settings, User } from "lucide-react";
+import { Cherry, LogOut, Settings, User } from "lucide-react";
 
 interface DashboardNavProps {
   user: {
@@ -29,9 +29,10 @@ export function DashboardNav({ user }: DashboardNavProps) {
     .toUpperCase() || user.email?.[0]?.toUpperCase() || "U";
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pt-2">
       <div className="container flex h-14 items-center justify-between">
         <Link href="/dashboard" className="flex items-center space-x-2">
+          <Cherry className="h-6 w-6 text-primary" />
           <span className="text-xl font-bold text-primary">Finnberry</span>
         </Link>
 

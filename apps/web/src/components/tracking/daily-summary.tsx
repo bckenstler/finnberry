@@ -32,7 +32,7 @@ export function DailySummary({ childId }: DailySummaryProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-950/30">
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-indigo-100 dark:bg-indigo-950/30">
             <Moon className="h-8 w-8 text-indigo-500" />
             <div className="flex-1">
               <p className="font-semibold">Sleep</p>
@@ -55,7 +55,7 @@ export function DailySummary({ childId }: DailySummaryProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-pink-50 dark:bg-pink-950/30">
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-pink-100 dark:bg-pink-950/30">
             <Baby className="h-8 w-8 text-pink-500" />
             <div className="flex-1">
               <p className="font-semibold">Feeding</p>
@@ -76,7 +76,7 @@ export function DailySummary({ childId }: DailySummaryProps) {
             </div>
           </div>
 
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30">
+          <div className="flex items-center gap-4 p-3 rounded-lg bg-blue-100 dark:bg-blue-950/30">
             <Droplets className="h-8 w-8 text-blue-500" />
             <div className="flex-1">
               <p className="font-semibold">Diapers</p>
