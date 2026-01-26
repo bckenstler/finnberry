@@ -8,4 +8,5 @@ export * from "./growth";
 export * from "./activity";
 export * from "./medicine";
 export * from "./user";
+export * from "./timeline";
 export * from "./common";

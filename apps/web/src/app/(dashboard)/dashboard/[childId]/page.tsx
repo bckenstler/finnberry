@@ -1,13 +1,13 @@
 "use client";
 
-import { use } from "react";
+import { use, useState } from "react";
 import { trpc } from "@/lib/trpc/provider";
-import { ActiveTimers } from "@/components/tracking/active-timers";
-import { RecentActivity } from "@/components/tracking/recent-activity";
-import { DailySummary } from "@/components/tracking/daily-summary";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { HomeView } from "@/components/dashboard/home-view";
+import { ReportsView } from "@/components/dashboard/reports-view";
 import Link from "next/link";
-import { ArrowLeft, Plus, Settings } from "lucide-react";
+import { ArrowLeft, Settings, Home, BarChart3 } from "lucide-react";
 
 export default function ChildDashboardPage({
   params,
@@ -15,6 +15,7 @@ export default function ChildDashboardPage({
   params: Promise<{ childId: string }>;
 }) {
   const { childId } = use(params);
+  const [activeTab, setActiveTab] = useState("home");
   const { data: child, isLoading } = trpc.child.get.useQuery({ id: childId });
 
   if (isLoading) {
@@ -37,7 +38,8 @@ export default function ChildDashboardPage({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button asChild variant="ghost" size="icon">
@@ -60,19 +62,27 @@ export default function ChildDashboardPage({
         </Button>
       </div>
 
-      <ActiveTimers childId={childId} />
+      {/* Main tabs */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="w-full grid grid-cols-2">
+          <TabsTrigger value="home" className="gap-2">
+            <Home className="h-4 w-4" />
+            Home
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            Reports
+          </TabsTrigger>
+        </TabsList>
 
-      <Button asChild size="lg" className="w-full">
-        <Link href={`/dashboard/${childId}/log`}>
-          <Plus className="mr-2 h-5 w-5" />
-          Log Activity
-        </Link>
-      </Button>
+        <TabsContent value="home" className="mt-4">
+          <HomeView childId={childId} />
+        </TabsContent>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <DailySummary childId={childId} />
-        <RecentActivity childId={childId} />
-      </div>
+        <TabsContent value="reports" className="mt-4">
+          <ReportsView childId={childId} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
