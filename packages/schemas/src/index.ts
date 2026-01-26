@@ -7,4 +7,5 @@ export * from "./pumping";
 export * from "./growth";
 export * from "./activity";
 export * from "./medicine";
+export * from "./user";
 export * from "./common";

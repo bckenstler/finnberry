@@ -8,6 +8,7 @@ import { pumpingRouter } from "./routers/pumping";
 import { growthRouter } from "./routers/growth";
 import { activityRouter } from "./routers/activity";
 import { medicineRouter } from "./routers/medicine";
+import { userRouter } from "./routers/user";
 
 export const appRouter = createTRPCRouter({
   household: householdRouter,
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   growth: growthRouter,
   activity: activityRouter,
   medicine: medicineRouter,
+  user: userRouter,
 });
 
 export type AppRouter = typeof appRouter;
