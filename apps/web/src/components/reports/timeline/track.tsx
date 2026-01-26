@@ -4,6 +4,7 @@ import {
   normalizeToTimelinePosition,
   DAY_START_HOUR,
   getTimelineHourLabels,
+  formatDurationPrecise,
 } from "@finnberry/utils";
 import {
   getActivityBarClasses,
@@ -46,6 +47,7 @@ interface TimelineEvent {
   startPos: number; // 0-24 position
   endPos: number; // 0-24 position
   label: string;
+  duration?: string; // Formatted duration for timed events
   column?: number; // For overlapping events
 }
 
@@ -62,9 +64,9 @@ export function TimelineTrack({
   // Add sleep events
   sleepRecords.forEach((record) => {
     const startPos = normalizeToTimelinePosition(record.startTime, DAY_START_HOUR);
-    const endPos = record.endTime
-      ? normalizeToTimelinePosition(record.endTime, DAY_START_HOUR)
-      : normalizeToTimelinePosition(new Date(), DAY_START_HOUR);
+    const endTime = record.endTime || new Date();
+    const endPos = normalizeToTimelinePosition(endTime, DAY_START_HOUR);
+    const duration = formatDurationPrecise(record.startTime, endTime);
 
     events.push({
       id: `sleep-${record.id}`,
@@ -72,6 +74,7 @@ export function TimelineTrack({
       startPos,
       endPos: Math.max(endPos, startPos + 0.25), // Minimum 15min display
       label: record.sleepType === "NIGHT" ? "Night" : "Nap",
+      duration,
     });
   });
 
@@ -87,10 +90,17 @@ export function TimelineTrack({
     );
 
     let label = "";
-    if (record.feedingType === "BREAST" && record.side) {
-      label = record.side === "LEFT" ? "L" : record.side === "RIGHT" ? "R" : "B";
-    } else if (record.feedingType === "BOTTLE" && record.amountMl) {
-      label = `${Math.round(record.amountMl / 29.574)}oz`;
+    let duration: string | undefined;
+    if (record.feedingType === "BREAST") {
+      label = "Breast";
+      if (record.endTime) {
+        duration = formatDurationPrecise(record.startTime, record.endTime);
+      }
+    } else if (record.feedingType === "BOTTLE") {
+      label = "Bottle";
+      if (record.amountMl) {
+        label = `${Math.round(record.amountMl / 29.574)}oz`;
+      }
     } else if (record.feedingType === "SOLIDS") {
       label = "Solids";
     }
@@ -101,6 +111,7 @@ export function TimelineTrack({
       startPos,
       endPos: Math.max(endPos, startPos + 0.25),
       label,
+      duration,
     });
   });
 
@@ -110,12 +121,12 @@ export function TimelineTrack({
 
     const label =
       record.diaperType === "WET"
-        ? "W"
+        ? "Wet"
         : record.diaperType === "DIRTY"
-          ? "D"
+          ? "Poo"
           : record.diaperType === "BOTH"
-            ? "M"
-            : "";
+            ? "Mixed"
+            : "Dry";
 
     events.push({
       id: `diaper-${record.id}`,
@@ -190,11 +201,12 @@ export function TimelineTrack({
           const height = ((event.endPos - event.startPos) / 24) * 100;
           const columnWidth = 100 / maxColumns;
           const left = (event.column ?? 0) * columnWidth;
+          const isSmallBlock = height < 4; // Less than ~1 hour
 
           return (
             <div
               key={event.id}
-              className={`absolute rounded-md flex items-center justify-center overflow-hidden text-xs font-medium shadow-sm ${getActivityBarClasses(event.category)}`}
+              className={`absolute rounded-md flex items-center overflow-hidden text-xs font-medium shadow-sm ${getActivityBarClasses(event.category)}`}
               style={{
                 top: `${Math.max(0, top)}%`,
                 height: `${Math.max(2, Math.min(height, 100 - top))}%`,
@@ -203,9 +215,14 @@ export function TimelineTrack({
                 minHeight: "20px",
               }}
             >
-              {event.label && (
-                <span className="truncate px-1">{event.label}</span>
-              )}
+              <div className="flex-1 flex items-center justify-between px-2 min-w-0">
+                {event.label && (
+                  <span className="truncate">{event.label}</span>
+                )}
+                {event.duration && !isSmallBlock && (
+                  <span className="truncate text-[10px] opacity-80 ml-1">{event.duration}</span>
+                )}
+              </div>
             </div>
           );
         })}
