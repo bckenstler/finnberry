@@ -10,18 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { mlToOz, ozToMl } from "@finnberry/utils";
+import { Play, Droplets, Cloud, CloudRain } from "lucide-react";
 
 type LogType = "sleep" | "breast" | "bottle" | "diaper";
 
@@ -32,10 +24,21 @@ interface LogModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+function formatTimeForInput(date: Date): string {
+  return date.toISOString().slice(0, 16);
+}
+
+function formatTimeDisplay(date: Date): string {
+  const today = new Date();
+  const isToday = date.toDateString() === today.toDateString();
+  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return isToday ? `Today, ${timeStr}` : date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${timeStr}`;
+}
+
 export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
         {type === "sleep" && (
           <SleepModal childId={childId} onClose={() => onOpenChange(false)} />
         )}
@@ -53,14 +56,81 @@ export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
   );
 }
 
+function TimeRow({
+  label,
+  value,
+  onChange,
+  placeholder = "Set time"
+}: {
+  label: string;
+  value: Date | null;
+  onChange: (date: Date | null) => void;
+  placeholder?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  return (
+    <div className="flex items-center justify-between py-4 px-6 border-b border-border">
+      <span className="text-muted-foreground">{label}</span>
+      {editing ? (
+        <input
+          type="datetime-local"
+          className="bg-transparent border-none text-right text-primary focus:outline-none"
+          value={value ? formatTimeForInput(value) : ""}
+          onChange={(e) => {
+            onChange(e.target.value ? new Date(e.target.value) : null);
+          }}
+          onBlur={() => setEditing(false)}
+          autoFocus
+        />
+      ) : (
+        <button
+          onClick={() => setEditing(true)}
+          className="text-primary hover:underline"
+        >
+          {value ? formatTimeDisplay(value) : placeholder}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function ToggleGroup<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex rounded-lg overflow-hidden border border-border mx-6 my-4">
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
+            value === option.value
+              ? "bg-primary text-primary-foreground"
+              : "bg-muted hover:bg-muted/80"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function SleepModal({ childId, onClose }: { childId: string; onClose: () => void }) {
   const { toast } = useToast();
   const utils = trpc.useUtils();
   const sleepTimer = useTimer(childId, "sleep");
 
   const [sleepType, setSleepType] = useState<"NAP" | "NIGHT">("NAP");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [endTime, setEndTime] = useState<Date | null>(null);
 
   const startSleep = trpc.sleep.start.useMutation({
     onSuccess: (result) => {
@@ -81,90 +151,63 @@ function SleepModal({ childId, onClose }: { childId: string; onClose: () => void
     },
   });
 
-  const handleStartTimer = (type: "NAP" | "NIGHT") => {
-    startSleep.mutate({ childId, sleepType: type });
+  const handleAction = () => {
+    if (endTime && startTime) {
+      // Log completed sleep
+      logSleep.mutate({
+        childId,
+        sleepType,
+        startTime,
+        endTime,
+      });
+    } else if (startTime) {
+      // Start timer
+      startSleep.mutate({ childId, sleepType, startTime });
+    }
   };
 
-  const handleLogDirect = () => {
-    if (!startTime) return;
-    logSleep.mutate({
-      childId,
-      sleepType,
-      startTime: new Date(startTime),
-      endTime: endTime ? new Date(endTime) : undefined,
-    });
-  };
+  const isLoading = startSleep.isPending || logSleep.isPending;
+  const hasEndTime = !!endTime;
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Log Sleep</DialogTitle>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Sleep</DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="timer" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="timer">Start Timer</TabsTrigger>
-          <TabsTrigger value="direct">Enter Times</TabsTrigger>
-        </TabsList>
-        <TabsContent value="timer" className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Start tracking sleep now
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              size="lg"
-              onClick={() => handleStartTimer("NAP")}
-              disabled={startSleep.isPending}
-            >
-              Start Nap
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => handleStartTimer("NIGHT")}
-              disabled={startSleep.isPending}
-            >
-              Start Night
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="direct" className="space-y-4">
-          <div className="space-y-2">
-            <Label>Sleep Type</Label>
-            <Select value={sleepType} onValueChange={(v) => setSleepType(v as "NAP" | "NIGHT")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="NAP">Nap</SelectItem>
-                <SelectItem value="NIGHT">Night Sleep</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Start Time</Label>
-            <Input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>End Time (optional)</Label>
-            <Input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
+
+      <ToggleGroup
+        options={[
+          { value: "NAP", label: "Nap" },
+          { value: "NIGHT", label: "Night" },
+        ]}
+        value={sleepType}
+        onChange={setSleepType}
+      />
+
+      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+      <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+
+      <div className="p-6 pt-8 flex justify-center">
+        {hasEndTime ? (
           <Button
-            className="w-full"
-            onClick={handleLogDirect}
-            disabled={!startTime || logSleep.isPending}
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleAction}
+            disabled={isLoading || !startTime}
           >
-            Log Sleep
+            Save
           </Button>
-        </TabsContent>
-      </Tabs>
+        ) : (
+          <button
+            onClick={handleAction}
+            disabled={isLoading || !startTime}
+            className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
+          >
+            <Play className="h-8 w-8 text-primary" />
+            <span className="text-primary font-semibold">START</span>
+          </button>
+        )}
+      </div>
     </>
   );
 }
@@ -175,8 +218,8 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
   const feedingTimer = useTimer(childId, "feeding");
 
   const [side, setSide] = useState<"LEFT" | "RIGHT" | "BOTH">("LEFT");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [endTime, setEndTime] = useState<Date | null>(null);
 
   const startBreastfeeding = trpc.feeding.startBreastfeeding.useMutation({
     onSuccess: (result) => {
@@ -197,92 +240,62 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
     },
   });
 
-  const handleStartTimer = (selectedSide: "LEFT" | "RIGHT") => {
-    setSide(selectedSide);
-    startBreastfeeding.mutate({ childId, side: selectedSide });
+  const handleAction = () => {
+    if (endTime && startTime) {
+      logBreastfeeding.mutate({
+        childId,
+        side,
+        startTime,
+        endTime,
+      });
+    } else if (startTime) {
+      startBreastfeeding.mutate({ childId, side, startTime });
+    }
   };
 
-  const handleLogDirect = () => {
-    if (!startTime) return;
-    logBreastfeeding.mutate({
-      childId,
-      side,
-      startTime: new Date(startTime),
-      endTime: endTime ? new Date(endTime) : undefined,
-    });
-  };
+  const isLoading = startBreastfeeding.isPending || logBreastfeeding.isPending;
+  const hasEndTime = !!endTime;
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Log Breastfeeding</DialogTitle>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Breastfeeding</DialogTitle>
       </DialogHeader>
-      <Tabs defaultValue="timer" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="timer">Start Timer</TabsTrigger>
-          <TabsTrigger value="direct">Enter Times</TabsTrigger>
-        </TabsList>
-        <TabsContent value="timer" className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            Start tracking breastfeeding now
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Button
-              size="lg"
-              onClick={() => handleStartTimer("LEFT")}
-              disabled={startBreastfeeding.isPending}
-            >
-              Left Side
-            </Button>
-            <Button
-              size="lg"
-              variant="secondary"
-              onClick={() => handleStartTimer("RIGHT")}
-              disabled={startBreastfeeding.isPending}
-            >
-              Right Side
-            </Button>
-          </div>
-        </TabsContent>
-        <TabsContent value="direct" className="space-y-4">
-          <div className="space-y-2">
-            <Label>Side</Label>
-            <Select value={side} onValueChange={(v) => setSide(v as "LEFT" | "RIGHT" | "BOTH")}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="LEFT">Left</SelectItem>
-                <SelectItem value="RIGHT">Right</SelectItem>
-                <SelectItem value="BOTH">Both</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Start Time</Label>
-            <Input
-              type="datetime-local"
-              value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>End Time (optional)</Label>
-            <Input
-              type="datetime-local"
-              value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
-            />
-          </div>
+
+      <ToggleGroup
+        options={[
+          { value: "LEFT", label: "Left" },
+          { value: "RIGHT", label: "Right" },
+          { value: "BOTH", label: "Both" },
+        ]}
+        value={side}
+        onChange={setSide}
+      />
+
+      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+      <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+
+      <div className="p-6 pt-8 flex justify-center">
+        {hasEndTime ? (
           <Button
-            className="w-full"
-            onClick={handleLogDirect}
-            disabled={!startTime || logBreastfeeding.isPending}
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleAction}
+            disabled={isLoading || !startTime}
           >
-            Log Breastfeeding
+            Save
           </Button>
-        </TabsContent>
-      </Tabs>
+        ) : (
+          <button
+            onClick={handleAction}
+            disabled={isLoading || !startTime}
+            className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
+          >
+            <Play className="h-8 w-8 text-primary" />
+            <span className="text-primary font-semibold">START</span>
+          </button>
+        )}
+      </div>
     </>
   );
 }
@@ -291,9 +304,10 @@ function BottleModal({ childId, onClose }: { childId: string; onClose: () => voi
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
-  const [amount, setAmount] = useState("120");
-  const [unit, setUnit] = useState<"ml" | "oz">("ml");
   const [contentType, setContentType] = useState<"FORMULA" | "BREAST_MILK">("FORMULA");
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [unit, setUnit] = useState<"oz" | "ml">("oz");
+  const [amountOz, setAmountOz] = useState(3);
 
   const logBottle = trpc.feeding.logBottle.useMutation({
     onSuccess: () => {
@@ -304,113 +318,79 @@ function BottleModal({ childId, onClose }: { childId: string; onClose: () => voi
     },
   });
 
-  const displayAmount = unit === "ml" ? amount : String(mlToOz(parseInt(amount, 10) || 0));
-
-  const presetsMl = [60, 90, 120, 150, 180];
-  const presetsOz = [2, 3, 4, 5, 6];
-
-  const handleAmountChange = (value: string) => {
-    const numValue = parseInt(value, 10) || 0;
-    if (unit === "oz") {
-      setAmount(String(ozToMl(numValue)));
-    } else {
-      setAmount(value);
-    }
-  };
-
-  const handlePresetClick = (value: number) => {
-    if (unit === "oz") {
-      setAmount(String(ozToMl(value)));
-    } else {
-      setAmount(String(value));
-    }
-  };
-
-  const handleUnitToggle = (newUnit: "ml" | "oz") => {
-    setUnit(newUnit);
-  };
-
-  const handleSubmit = () => {
+  const handleSave = () => {
+    if (!startTime) return;
+    const amountMl = unit === "oz" ? ozToMl(amountOz) : Math.round(amountOz);
     logBottle.mutate({
       childId,
-      startTime: new Date(),
-      amountMl: parseInt(amount, 10),
+      startTime,
+      amountMl,
       bottleContentType: contentType,
     });
   };
 
+  const displayAmount = unit === "oz" ? amountOz.toFixed(1) : Math.round(ozToMl(amountOz));
+  const maxAmount = unit === "oz" ? 12 : 350;
+
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Log Bottle Feeding</DialogTitle>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Bottle</DialogTitle>
       </DialogHeader>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Content Type</Label>
-          <Select value={contentType} onValueChange={(v) => setContentType(v as "FORMULA" | "BREAST_MILK")}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="FORMULA">Formula</SelectItem>
-              <SelectItem value="BREAST_MILK">Breast Milk</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
 
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Amount</Label>
-            <div className="flex gap-1">
-              <Button
-                variant={unit === "ml" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleUnitToggle("ml")}
-              >
-                ml
-              </Button>
-              <Button
-                variant={unit === "oz" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleUnitToggle("oz")}
+      <ToggleGroup
+        options={[
+          { value: "FORMULA", label: "Formula" },
+          { value: "BREAST_MILK", label: "Breast Milk" },
+        ]}
+        value={contentType}
+        onChange={setContentType}
+      />
+
+      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+
+      <div className="py-4 px-6 border-b border-border">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-muted-foreground">Amount</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xl font-semibold">{displayAmount} {unit}</span>
+            <div className="flex rounded overflow-hidden border border-border ml-2">
+              <button
+                onClick={() => setUnit("oz")}
+                className={`px-3 py-1 text-sm ${unit === "oz" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
               >
                 oz
-              </Button>
+              </button>
+              <button
+                onClick={() => setUnit("ml")}
+                className={`px-3 py-1 text-sm ${unit === "ml" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+              >
+                mL
+              </button>
             </div>
           </div>
-          <Input
-            type="number"
-            value={displayAmount}
-            onChange={(e) => handleAmountChange(e.target.value)}
-            min="0"
-            max={unit === "ml" ? "500" : "17"}
-          />
         </div>
-
-        <div className="flex gap-2 flex-wrap">
-          {(unit === "ml" ? presetsMl : presetsOz).map((value) => (
-            <Button
-              key={value}
-              variant={
-                (unit === "ml" && amount === String(value)) ||
-                (unit === "oz" && amount === String(ozToMl(value)))
-                  ? "default"
-                  : "outline"
-              }
-              size="sm"
-              onClick={() => handlePresetClick(value)}
-            >
-              {value}{unit}
-            </Button>
-          ))}
-        </div>
-
-        <Button
+        <Slider
+          value={[unit === "oz" ? amountOz : ozToMl(amountOz)]}
+          onValueChange={([val]) => setAmountOz(unit === "oz" ? val : mlToOz(val))}
+          max={maxAmount}
+          step={unit === "oz" ? 0.5 : 10}
           className="w-full"
-          onClick={handleSubmit}
-          disabled={logBottle.isPending}
+        />
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>0</span>
+          <span>{maxAmount}</span>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={logBottle.isPending || !startTime}
         >
-          Log Bottle
+          Save
         </Button>
       </div>
     </>
@@ -421,9 +401,8 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
-  const [diaperType, setDiaperType] = useState<"WET" | "DIRTY" | "BOTH">("WET");
-  const [color, setColor] = useState<string>("");
-  const [size, setSize] = useState<string>("");
+  const [time, setTime] = useState<Date | null>(new Date());
+  const [diaperType, setDiaperType] = useState<"WET" | "DIRTY" | "BOTH" | "DRY">("WET");
 
   const logDiaper = trpc.diaper.log.useMutation({
     onSuccess: () => {
@@ -434,76 +413,57 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
     },
   });
 
-  const handleSubmit = () => {
+  const handleSave = () => {
     logDiaper.mutate({
       childId,
       diaperType,
-      color: color as "YELLOW" | "GREEN" | "BROWN" | "BLACK" | "RED" | "WHITE" | "OTHER" | undefined || undefined,
-      size: size as "NEWBORN" | "SIZE_1" | "SIZE_2" | "SIZE_3" | "SIZE_4" | "SIZE_5" | "SIZE_6" | undefined || undefined,
+      time: time ?? undefined,
     });
   };
 
+  const typeOptions = [
+    { value: "WET" as const, label: "Wet", icon: Droplets },
+    { value: "DIRTY" as const, label: "Dirty", icon: Cloud },
+    { value: "BOTH" as const, label: "Mixed", icon: CloudRain },
+  ];
+
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Log Diaper Change</DialogTitle>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Diaper</DialogTitle>
       </DialogHeader>
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label>Diaper Type</Label>
-          <div className="grid grid-cols-3 gap-2">
-            {(["WET", "DIRTY", "BOTH"] as const).map((type) => (
-              <Button
-                key={type}
-                variant={diaperType === type ? "default" : "outline"}
-                onClick={() => setDiaperType(type)}
-              >
-                {type.charAt(0) + type.slice(1).toLowerCase()}
-              </Button>
-            ))}
-          </div>
-        </div>
 
-        <div className="space-y-2">
-          <Label>Color (optional)</Label>
-          <Select value={color} onValueChange={setColor}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select color" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="YELLOW">Yellow</SelectItem>
-              <SelectItem value="GREEN">Green</SelectItem>
-              <SelectItem value="BROWN">Brown</SelectItem>
-              <SelectItem value="BLACK">Black</SelectItem>
-              <SelectItem value="OTHER">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <TimeRow label="Time" value={time} onChange={setTime} />
 
-        <div className="space-y-2">
-          <Label>Size (optional)</Label>
-          <Select value={size} onValueChange={setSize}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select size" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="NEWBORN">Newborn</SelectItem>
-              <SelectItem value="SIZE_1">Size 1</SelectItem>
-              <SelectItem value="SIZE_2">Size 2</SelectItem>
-              <SelectItem value="SIZE_3">Size 3</SelectItem>
-              <SelectItem value="SIZE_4">Size 4</SelectItem>
-              <SelectItem value="SIZE_5">Size 5</SelectItem>
-              <SelectItem value="SIZE_6">Size 6</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="px-6 py-6">
+        <div className="flex justify-center gap-4">
+          {typeOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setDiaperType(option.value)}
+              className={`flex flex-col items-center gap-2 p-4 rounded-full w-20 h-20 transition-colors ${
+                diaperType === option.value
+                  ? "bg-primary/20 border-2 border-primary"
+                  : "bg-muted border-2 border-transparent hover:bg-muted/80"
+              }`}
+            >
+              <option.icon className={`h-6 w-6 ${diaperType === option.value ? "text-primary" : "text-muted-foreground"}`} />
+              <span className={`text-xs ${diaperType === option.value ? "text-primary" : "text-muted-foreground"}`}>
+                {option.label}
+              </span>
+            </button>
+          ))}
         </div>
+      </div>
 
+      <div className="p-6 pt-0">
         <Button
-          className="w-full"
-          onClick={handleSubmit}
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
           disabled={logDiaper.isPending}
         >
-          Log Diaper
+          Save
         </Button>
       </div>
     </>
