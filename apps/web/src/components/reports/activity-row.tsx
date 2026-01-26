@@ -126,7 +126,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
 
   // Helper to close edit dialog and notify parent
   const closeEditDialog = () => {
-    closeEditDialog();
+    setEditOpen(false);
     onEditClose?.();
   };
 
