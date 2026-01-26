@@ -30,7 +30,7 @@ finnberry/
 │   │   │   ├── app/             # App Router pages
 │   │   │   │   ├── (auth)/      # Auth pages (login, verify)
 │   │   │   │   ├── (dashboard)/ # Protected dashboard routes
-│   │   │   │   └── api/         # API routes (tRPC, NextAuth)
+│   │   │   │   └── api/         # API routes (tRPC, NextAuth, test/seed)
 │   │   │   ├── components/
 │   │   │   │   ├── ui/          # shadcn/ui components
 │   │   │   │   ├── tracking/    # Sleep, feeding, diaper components
@@ -99,24 +99,38 @@ pnpm test:coverage          # Run tests with coverage report
 
 ## Testing
 
+### Test Coverage
+
+| Suite | Framework | Tests | Description |
+|-------|-----------|-------|-------------|
+| Unit | Vitest | ~240 | Utils + Schemas validation |
+| Integration | Vitest | ~120 | tRPC routers with mocked Prisma |
+| E2E | Playwright | 25 | Full browser tests with real DB |
+
 ### Test Structure
 
 ```
 finnberry/
 ├── packages/
 │   ├── utils/src/*.test.ts        # Unit tests for utilities
-│   ├── schemas/src/*.test.ts      # Schema validation tests
+│   ├── schemas/src/*.test.ts      # Schema validation tests (11 files)
 │   └── api/src/
 │       ├── test/                   # Test setup and helpers
 │       │   ├── setup.ts            # Prisma mock setup
 │       │   └── helpers.ts          # Test context creators, factories
 │       ├── trpc.test.ts            # Middleware tests
-│       └── routers/*.test.ts       # Router integration tests
+│       └── routers/*.test.ts       # Router integration tests (9 routers)
 └── apps/web/
     ├── src/stores/*.test.ts        # Zustand store tests
     └── e2e/                         # Playwright E2E tests
-        ├── fixtures/                # Auth and database fixtures
-        └── *.spec.ts                # Test specifications
+        ├── fixtures/
+        │   ├── auth.ts              # Authenticated page/context fixtures
+        │   └── database.ts          # Test data seeding via API
+        ├── auth.spec.ts             # Login, magic link, error pages
+        ├── household.spec.ts        # Dashboard, child navigation
+        ├── tracking.spec.ts         # Sleep, feeding, diaper tracking
+        ├── timer-persistence.spec.ts # Timer survives refresh
+        └── realtime-sync.spec.ts    # Optimistic updates
 ```
 
 ### Writing API Tests
@@ -154,6 +168,19 @@ Use valid CUID format IDs from `TEST_IDS` constant:
 ```typescript
 import { TEST_IDS } from "../test/helpers";
 // TEST_IDS.userId, TEST_IDS.householdId, TEST_IDS.childId, etc.
+```
+
+### E2E Test Infrastructure
+
+E2E tests use a test seed API (`/api/test/seed`) to create real database records:
+- Only available in development/test environments
+- Creates test users, sessions, households, and children
+- Cleanup removes all records prefixed with `e2e-test`
+
+Tests run serially (`workers=1`) to avoid race conditions. Run with:
+```bash
+# Requires dev server running on port 3001
+BASE_URL=http://localhost:3001 pnpm test:e2e
 ```
 
 ## Key Patterns
