@@ -397,17 +397,13 @@ function BottleModal({ childId, onClose }: { childId: string; onClose: () => voi
   );
 }
 
-type DiaperSize = "NEWBORN" | "SIZE_1" | "SIZE_2" | "SIZE_3" | "SIZE_4" | "SIZE_5" | "SIZE_6";
+type DiaperAmount = "SMALL" | "MEDIUM" | "LARGE";
 type DiaperColor = "YELLOW" | "GREEN" | "BROWN" | "BLACK" | "OTHER";
 
-const sizeOptions: { value: DiaperSize; label: string }[] = [
-  { value: "NEWBORN", label: "NB" },
-  { value: "SIZE_1", label: "1" },
-  { value: "SIZE_2", label: "2" },
-  { value: "SIZE_3", label: "3" },
-  { value: "SIZE_4", label: "4" },
-  { value: "SIZE_5", label: "5" },
-  { value: "SIZE_6", label: "6" },
+const amountOptions: { value: DiaperAmount; label: string }[] = [
+  { value: "SMALL", label: "S" },
+  { value: "MEDIUM", label: "M" },
+  { value: "LARGE", label: "L" },
 ];
 
 const colorOptions: { value: DiaperColor; label: string; color: string }[] = [
@@ -424,7 +420,7 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
 
   const [time, setTime] = useState<Date | null>(new Date());
   const [diaperType, setDiaperType] = useState<"WET" | "DIRTY" | "BOTH" | "DRY">("WET");
-  const [size, setSize] = useState<DiaperSize | null>(null);
+  const [amount, setAmount] = useState<DiaperAmount | null>(null);
   const [color, setColor] = useState<DiaperColor | null>(null);
 
   const logDiaper = trpc.diaper.log.useMutation({
@@ -441,7 +437,7 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
       childId,
       diaperType,
       time: time ?? undefined,
-      size: size ?? undefined,
+      amount: amount ?? undefined,
       color: color ?? undefined,
     });
   };
@@ -504,14 +500,14 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
       )}
 
       <div className="px-6 py-3 border-t border-border">
-        <p className="text-sm text-muted-foreground mb-2">Size</p>
-        <div className="flex gap-2 justify-center">
-          {sizeOptions.map((option) => (
+        <p className="text-sm text-muted-foreground mb-2">Amount</p>
+        <div className="flex gap-3 justify-center">
+          {amountOptions.map((option) => (
             <button
               key={option.value}
-              onClick={() => setSize(size === option.value ? null : option.value)}
-              className={`w-10 h-10 rounded-full text-sm font-medium transition-colors ${
-                size === option.value
+              onClick={() => setAmount(amount === option.value ? null : option.value)}
+              className={`w-12 h-12 rounded-full text-sm font-medium transition-colors ${
+                amount === option.value
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-muted-foreground hover:bg-muted/80"
               }`}

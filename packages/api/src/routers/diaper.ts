@@ -49,6 +49,7 @@ export const diaperRouter = createTRPCRouter({
           color: input.color,
           consistency: input.consistency,
           size: input.size,
+          amount: input.amount,
           notes: input.notes,
         },
       });
@@ -74,6 +75,7 @@ export const diaperRouter = createTRPCRouter({
           color: input.color,
           consistency: input.consistency,
           size: input.size,
+          amount: input.amount,
           notes: input.notes,
         },
       });
