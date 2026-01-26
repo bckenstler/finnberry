@@ -63,6 +63,7 @@ interface TimelineTrackProps {
   feedingRecords: FeedingRecord[];
   diaperRecords: DiaperRecord[];
   dayStart: Date;
+  selectedDate?: Date;
   onEventClick?: (recordId: string, recordType: RecordType, record: SleepRecord | FeedingRecord | DiaperRecord) => void;
 }
 
@@ -84,6 +85,7 @@ export function TimelineTrack({
   sleepRecords,
   feedingRecords,
   diaperRecords,
+  selectedDate,
   onEventClick,
 }: TimelineTrackProps) {
   const hourLabels = getTimelineHourLabels(DAY_START_HOUR);
@@ -277,14 +279,22 @@ export function TimelineTrack({
         })}
 
         {/* Current time indicator */}
-        <CurrentTimeIndicator />
+        <CurrentTimeIndicator selectedDate={selectedDate} />
       </div>
     </div>
   );
 }
 
-function CurrentTimeIndicator() {
+function CurrentTimeIndicator({ selectedDate }: { selectedDate?: Date }) {
   const now = new Date();
+
+  // Only show on today's date
+  const isToday = selectedDate
+    ? selectedDate.toDateString() === now.toDateString()
+    : true;
+
+  if (!isToday) return null;
+
   const pos = normalizeToTimelinePosition(now, DAY_START_HOUR);
   const top = (pos / 24) * 100;
 

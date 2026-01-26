@@ -88,6 +88,7 @@ export function DayView({ childId }: DayViewProps) {
               feedingRecords={data.feedingRecords}
               diaperRecords={data.diaperRecords}
               dayStart={data.dayStart}
+              selectedDate={selectedDate}
               onEventClick={handleEventClick}
             />
           ) : (
