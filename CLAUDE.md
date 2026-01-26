@@ -223,6 +223,29 @@ Key models in `packages/db/prisma/schema.prisma`:
 - `PumpingRecord`, `GrowthRecord`, `ActivityRecord` - Extended tracking
 - `Medicine`, `MedicineRecord` - Medicine tracking
 
+## Git Workflow
+
+**IMPORTANT: Always create a new branch for bug fixes and new features. Never work directly on main.**
+
+```bash
+# For bug fixes
+git checkout -b fix/descriptive-name
+
+# For new features
+git checkout -b feature/descriptive-name
+
+# After completing work
+git push -u origin <branch-name>
+gh pr create --fill
+# Then merge via GitHub PR
+```
+
+Branch naming conventions:
+- `fix/` - Bug fixes (e.g., `fix/timer-stop-bug`)
+- `feature/` - New features (e.g., `feature/settings-pages`)
+- `refactor/` - Code refactoring
+- `docs/` - Documentation updates
+
 ## Conventions
 
 ### File Naming
