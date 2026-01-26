@@ -215,7 +215,7 @@ export function TimelineTrack({
   const maxColumns = Math.max(...eventsWithColumns.map((e) => (e.column ?? 0) + 1), 1);
 
   return (
-    <div className="relative flex" style={{ height: "500px" }}>
+    <div className="relative flex" style={{ height: "1500px" }}>
       {/* Time axis - vertical on left */}
       <div className="w-12 flex-shrink-0 relative border-r border-border">
         {hourLabels.map((label, i) => (
