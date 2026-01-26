@@ -34,15 +34,22 @@ interface DiaperRecord {
   diaperType: string;
 }
 
+export type RecordType = "SLEEP" | "FEEDING" | "DIAPER";
+export type { SleepRecord, FeedingRecord, DiaperRecord };
+
 interface TimelineTrackProps {
   sleepRecords: SleepRecord[];
   feedingRecords: FeedingRecord[];
   diaperRecords: DiaperRecord[];
   dayStart: Date;
+  onEventClick?: (recordId: string, recordType: RecordType, record: SleepRecord | FeedingRecord | DiaperRecord) => void;
 }
 
 interface TimelineEvent {
   id: string;
+  recordId: string; // Actual record ID for editing
+  recordType: RecordType;
+  record: SleepRecord | FeedingRecord | DiaperRecord;
   category: ActivityCategory;
   startPos: number; // 0-24 position
   endPos: number; // 0-24 position
@@ -55,6 +62,7 @@ export function TimelineTrack({
   sleepRecords,
   feedingRecords,
   diaperRecords,
+  onEventClick,
 }: TimelineTrackProps) {
   const hourLabels = getTimelineHourLabels(DAY_START_HOUR);
 
@@ -70,6 +78,9 @@ export function TimelineTrack({
 
     events.push({
       id: `sleep-${record.id}`,
+      recordId: record.id,
+      recordType: "SLEEP",
+      record,
       category: "sleep",
       startPos,
       endPos: Math.max(endPos, startPos + 0.25), // Minimum 15min display
@@ -107,6 +118,9 @@ export function TimelineTrack({
 
     events.push({
       id: `feeding-${record.id}`,
+      recordId: record.id,
+      recordType: "FEEDING",
+      record,
       category,
       startPos,
       endPos: Math.max(endPos, startPos + 0.25),
@@ -130,6 +144,9 @@ export function TimelineTrack({
 
     events.push({
       id: `diaper-${record.id}`,
+      recordId: record.id,
+      recordType: "DIAPER",
+      record,
       category: "diaper",
       startPos: pos,
       endPos: pos + 0.25, // 15min display width
@@ -204,9 +221,10 @@ export function TimelineTrack({
           const isSmallBlock = height < 4; // Less than ~1 hour
 
           return (
-            <div
+            <button
               key={event.id}
-              className={`absolute rounded-md flex items-center overflow-hidden text-xs font-medium shadow-sm ${getActivityBarClasses(event.category)}`}
+              onClick={() => onEventClick?.(event.recordId, event.recordType, event.record)}
+              className={`absolute rounded-md flex items-center overflow-hidden text-xs font-medium shadow-sm cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-all ${getActivityBarClasses(event.category)}`}
               style={{
                 top: `${Math.max(0, top)}%`,
                 height: `${Math.max(2, Math.min(height, 100 - top))}%`,
@@ -223,7 +241,7 @@ export function TimelineTrack({
                   <span className="truncate text-[10px] opacity-80 ml-1">{event.duration}</span>
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
 

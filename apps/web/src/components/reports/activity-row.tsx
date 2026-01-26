@@ -67,6 +67,8 @@ interface ActivityRowProps {
   activity: Activity;
   childId: string;
   childName?: string;
+  autoOpenEdit?: boolean;
+  onEditClose?: () => void;
 }
 
 const iconMap = {
@@ -94,8 +96,8 @@ const colorOptions: { value: DiaperColor; label: string; color: string }[] = [
   { value: "OTHER", label: "Other", color: "bg-gray-400" },
 ];
 
-export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityRowProps) {
-  const [editOpen, setEditOpen] = useState(false);
+export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdit = false, onEditClose }: ActivityRowProps) {
+  const [editOpen, setEditOpen] = useState(autoOpenEdit);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { toast } = useToast();
   const utils = trpc.useUtils();
@@ -121,6 +123,12 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
   const [editDiaperColor, setEditDiaperColor] = useState<DiaperColor | null>(null);
   const [editDiaperAmount, setEditDiaperAmount] = useState<DiaperAmount | null>(null);
   const [editDiaperTime, setEditDiaperTime] = useState<Date | null>(null);
+
+  // Helper to close edit dialog and notify parent
+  const closeEditDialog = () => {
+    closeEditDialog();
+    onEditClose?.();
+  };
 
   // Initialize edit state when dialog opens
   useEffect(() => {
@@ -159,7 +167,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Sleep record deleted" });
       setDeleteConfirmOpen(false);
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -170,7 +178,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Feeding record deleted" });
       setDeleteConfirmOpen(false);
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -181,7 +189,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Diaper record deleted" });
       setDeleteConfirmOpen(false);
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -192,7 +200,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Sleep record updated" });
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -202,7 +210,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Feeding record updated" });
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -212,7 +220,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
       toast({ title: "Diaper record updated" });
-      setEditOpen(false);
+      closeEditDialog();
     },
   });
 
@@ -560,7 +568,7 @@ export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityR
       </button>
 
       {/* Edit Dialog */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog open={editOpen} onOpenChange={(open) => { if (!open) closeEditDialog(); else setEditOpen(true); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Activity</DialogTitle>
