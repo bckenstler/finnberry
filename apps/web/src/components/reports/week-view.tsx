@@ -88,7 +88,7 @@ export function WeekView({ childId }: WeekViewProps) {
                 {/* Hour lines */}
                 {hourLabels.map((label, i) => (
                   <div
-                    key={label}
+                    key={`${label}-${i}`}
                     className="absolute w-full border-t border-border/50 flex items-start"
                     style={{ top: `${(i / (hourLabels.length - 1)) * 100}%` }}
                   >
