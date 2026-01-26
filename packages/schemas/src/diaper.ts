@@ -24,12 +24,24 @@ export const diaperConsistencySchema = z.enum([
 ]);
 export type DiaperConsistency = z.infer<typeof diaperConsistencySchema>;
 
+export const diaperSizeSchema = z.enum([
+  "NEWBORN",
+  "SIZE_1",
+  "SIZE_2",
+  "SIZE_3",
+  "SIZE_4",
+  "SIZE_5",
+  "SIZE_6",
+]);
+export type DiaperSize = z.infer<typeof diaperSizeSchema>;
+
 export const logDiaperSchema = z.object({
   childId: idSchema,
   time: z.coerce.date().optional(),
   diaperType: diaperTypeSchema,
   color: diaperColorSchema.optional(),
   consistency: diaperConsistencySchema.optional(),
+  size: diaperSizeSchema.optional(),
   notes: z.string().max(500).optional(),
 });
 export type LogDiaperInput = z.infer<typeof logDiaperSchema>;
@@ -40,6 +52,7 @@ export const updateDiaperSchema = z.object({
   diaperType: diaperTypeSchema.optional(),
   color: diaperColorSchema.optional().nullable(),
   consistency: diaperConsistencySchema.optional().nullable(),
+  size: diaperSizeSchema.optional().nullable(),
   notes: z.string().max(500).optional().nullable(),
 });
 export type UpdateDiaperInput = z.infer<typeof updateDiaperSchema>;

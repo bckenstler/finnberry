@@ -190,6 +190,11 @@ enum BreastSide {
   BOTH
 }
 
+enum BottleContentType {
+  FORMULA
+  BREAST_MILK
+}
+
 model FeedingRecord {
   id          String       @id @default(cuid())
   childId     String       @map("child_id")
@@ -201,7 +206,8 @@ model FeedingRecord {
   side        BreastSide?
 
   // Bottle specific
-  amountMl    Int?         @map("amount_ml")
+  amountMl          Int?              @map("amount_ml")
+  bottleContentType BottleContentType? @map("bottle_content_type")
 
   // Solids specific
   foodItems   String[]     @map("food_items")
@@ -245,6 +251,16 @@ enum DiaperConsistency {
   HARD
 }
 
+enum DiaperSize {
+  NEWBORN
+  SIZE_1
+  SIZE_2
+  SIZE_3
+  SIZE_4
+  SIZE_5
+  SIZE_6
+}
+
 model DiaperRecord {
   id          String            @id @default(cuid())
   childId     String            @map("child_id")
@@ -252,6 +268,7 @@ model DiaperRecord {
   diaperType  DiaperType        @map("diaper_type")
   color       DiaperColor?
   consistency DiaperConsistency?
+  size        DiaperSize?
   notes       String?
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")

@@ -2,13 +2,12 @@
 
 import { use } from "react";
 import { trpc } from "@/lib/trpc/provider";
-import { QuickLogGrid } from "@/components/tracking/quick-log-grid";
 import { ActiveTimers } from "@/components/tracking/active-timers";
 import { RecentActivity } from "@/components/tracking/recent-activity";
 import { DailySummary } from "@/components/tracking/daily-summary";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Settings } from "lucide-react";
+import { ArrowLeft, Plus, Settings } from "lucide-react";
 
 export default function ChildDashboardPage({
   params,
@@ -63,7 +62,12 @@ export default function ChildDashboardPage({
 
       <ActiveTimers childId={childId} />
 
-      <QuickLogGrid childId={childId} />
+      <Button asChild size="lg" className="w-full">
+        <Link href={`/dashboard/${childId}/log`}>
+          <Plus className="mr-2 h-5 w-5" />
+          Log Activity
+        </Link>
+      </Button>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <DailySummary childId={childId} />

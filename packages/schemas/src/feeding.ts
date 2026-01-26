@@ -7,6 +7,9 @@ export type FeedingType = z.infer<typeof feedingTypeSchema>;
 export const breastSideSchema = z.enum(["LEFT", "RIGHT", "BOTH"]);
 export type BreastSide = z.infer<typeof breastSideSchema>;
 
+export const bottleContentTypeSchema = z.enum(["FORMULA", "BREAST_MILK"]);
+export type BottleContentType = z.infer<typeof bottleContentTypeSchema>;
+
 export const logBreastfeedingSchema = z.object({
   childId: idSchema,
   startTime: z.coerce.date(),
@@ -35,6 +38,7 @@ export const logBottleSchema = z.object({
   startTime: z.coerce.date(),
   endTime: z.coerce.date().optional(),
   amountMl: z.number().min(0).max(500),
+  bottleContentType: bottleContentTypeSchema.optional(),
   notes: z.string().max(500).optional(),
 });
 export type LogBottleInput = z.infer<typeof logBottleSchema>;
@@ -54,6 +58,7 @@ export const updateFeedingSchema = z.object({
   endTime: z.coerce.date().optional().nullable(),
   side: breastSideSchema.optional().nullable(),
   amountMl: z.number().min(0).max(500).optional().nullable(),
+  bottleContentType: bottleContentTypeSchema.optional().nullable(),
   foodItems: z.array(z.string()).optional(),
   notes: z.string().max(500).optional().nullable(),
 });

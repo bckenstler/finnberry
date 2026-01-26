@@ -22,7 +22,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { mlToOz, ozToMl } from "@finnberry/utils";
 import { Moon, Baby, Droplets, Plus, Play, Square } from "lucide-react";
+
+type BottleContentType = "FORMULA" | "BREAST_MILK";
 
 interface QuickLogGridProps {
   childId: string;
@@ -273,16 +276,41 @@ function BottleDialog({
   onLog,
 }: {
   childId: string;
-  onLog: (data: { childId: string; startTime: Date; amountMl: number }) => Promise<unknown>;
+  onLog: (data: { childId: string; startTime: Date; amountMl: number; bottleContentType?: BottleContentType }) => Promise<unknown>;
 }) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState("120");
+  const [unit, setUnit] = useState<"ml" | "oz">("ml");
+  const [contentType, setContentType] = useState<BottleContentType>("FORMULA");
+
+  const presetsMl = [60, 90, 120, 150, 180];
+  const presetsOz = [2, 3, 4, 5, 6];
+
+  const displayAmount = unit === "ml" ? amount : String(mlToOz(parseInt(amount, 10) || 0));
+
+  const handleAmountChange = (value: string) => {
+    const numValue = parseInt(value, 10) || 0;
+    if (unit === "oz") {
+      setAmount(String(ozToMl(numValue)));
+    } else {
+      setAmount(value);
+    }
+  };
+
+  const handlePresetClick = (value: number) => {
+    if (unit === "oz") {
+      setAmount(String(ozToMl(value)));
+    } else {
+      setAmount(String(value));
+    }
+  };
 
   const handleSubmit = async () => {
     await onLog({
       childId,
       startTime: new Date(),
       amountMl: parseInt(amount, 10),
+      bottleContentType: contentType,
     });
     setOpen(false);
     setAmount("120");
@@ -302,25 +330,60 @@ function BottleDialog({
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="amount">Amount (ml)</Label>
+            <Label>Content Type</Label>
+            <Select value={contentType} onValueChange={(v) => setContentType(v as BottleContentType)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="FORMULA">Formula</SelectItem>
+                <SelectItem value="BREAST_MILK">Breast Milk</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label htmlFor="amount">Amount</Label>
+              <div className="flex gap-1">
+                <Button
+                  variant={unit === "ml" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUnit("ml")}
+                >
+                  ml
+                </Button>
+                <Button
+                  variant={unit === "oz" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setUnit("oz")}
+                >
+                  oz
+                </Button>
+              </div>
+            </div>
             <Input
               id="amount"
               type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              value={displayAmount}
+              onChange={(e) => handleAmountChange(e.target.value)}
               min="0"
-              max="500"
+              max={unit === "ml" ? "500" : "17"}
             />
           </div>
-          <div className="flex gap-2">
-            {[60, 90, 120, 150, 180].map((ml) => (
+          <div className="flex gap-2 flex-wrap">
+            {(unit === "ml" ? presetsMl : presetsOz).map((value) => (
               <Button
-                key={ml}
-                variant={amount === String(ml) ? "default" : "outline"}
+                key={value}
+                variant={
+                  (unit === "ml" && amount === String(value)) ||
+                  (unit === "oz" && amount === String(ozToMl(value)))
+                    ? "default"
+                    : "outline"
+                }
                 size="sm"
-                onClick={() => setAmount(String(ml))}
+                onClick={() => handlePresetClick(value)}
               >
-                {ml}ml
+                {value}{unit}
               </Button>
             ))}
           </div>

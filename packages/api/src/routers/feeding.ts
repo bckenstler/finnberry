@@ -150,6 +150,7 @@ export const feedingRouter = createTRPCRouter({
           startTime: input.startTime,
           endTime: input.endTime,
           amountMl: input.amountMl,
+          bottleContentType: input.bottleContentType,
           notes: input.notes,
         },
       });
@@ -198,6 +199,7 @@ export const feedingRouter = createTRPCRouter({
           endTime: input.endTime,
           side: input.side,
           amountMl: input.amountMl,
+          bottleContentType: input.bottleContentType,
           foodItems: input.foodItems,
           notes: input.notes,
         },
