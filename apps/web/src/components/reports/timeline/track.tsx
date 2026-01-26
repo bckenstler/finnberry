@@ -246,7 +246,10 @@ export function TimelineTrack({
           const height = ((event.endPos - event.startPos) / 24) * 100;
           const columnWidth = 100 / maxColumns;
           const left = (event.column ?? 0) * columnWidth;
-          const isSmallBlock = height < 4; // Less than ~1 hour
+          // Quarter hour = 0.25/24 * 100 = ~1.04% (minimum height for all events)
+          const quarterHourPercent = (0.25 / 24) * 100;
+          const finalHeight = Math.max(quarterHourPercent, Math.min(height, 100 - top));
+          const isSmallBlock = finalHeight < 2; // Less than ~30 min
 
           return (
             <button
@@ -255,10 +258,10 @@ export function TimelineTrack({
               className={`absolute rounded-md flex items-center overflow-hidden text-xs font-medium shadow-sm cursor-pointer hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary transition-all ${getActivityBarClasses(event.category)}`}
               style={{
                 top: `${Math.max(0, top)}%`,
-                height: `${Math.max(2, Math.min(height, 100 - top))}%`,
+                height: `${finalHeight}%`,
                 left: `${left}%`,
                 width: `${columnWidth - 1}%`,
-                minHeight: "20px",
+                minHeight: "16px", // ~1/4 hour at 1500px height
               }}
             >
               <div className="flex-1 flex items-center justify-between px-2 min-w-0 gap-1">
