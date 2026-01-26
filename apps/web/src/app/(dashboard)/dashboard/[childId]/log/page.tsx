@@ -45,32 +45,40 @@ export default function LogPage({
       label: "Sleep",
       description: "Log nap or night sleep",
       icon: Moon,
-      color: "text-indigo-500",
-      bgColor: "bg-indigo-100 dark:bg-indigo-950/30",
+      iconColor: "text-indigo-600 dark:text-indigo-400",
+      bgColor: "bg-indigo-100 dark:bg-indigo-900/50",
+      textColor: "text-indigo-900 dark:text-indigo-100",
+      descColor: "text-indigo-700 dark:text-indigo-300",
     },
     {
       type: "breast" as const,
       label: "Breastfeeding",
       description: "Log breastfeeding session",
       icon: Baby,
-      color: "text-pink-500",
-      bgColor: "bg-pink-100 dark:bg-pink-950/30",
+      iconColor: "text-pink-600 dark:text-pink-400",
+      bgColor: "bg-pink-100 dark:bg-pink-900/50",
+      textColor: "text-pink-900 dark:text-pink-100",
+      descColor: "text-pink-700 dark:text-pink-300",
     },
     {
       type: "bottle" as const,
       label: "Bottle",
       description: "Log bottle feeding",
       icon: Baby,
-      color: "text-orange-500",
-      bgColor: "bg-orange-100 dark:bg-orange-950/30",
+      iconColor: "text-orange-600 dark:text-orange-400",
+      bgColor: "bg-orange-100 dark:bg-orange-900/50",
+      textColor: "text-orange-900 dark:text-orange-100",
+      descColor: "text-orange-700 dark:text-orange-300",
     },
     {
       type: "diaper" as const,
       label: "Diaper",
       description: "Log diaper change",
       icon: Droplets,
-      color: "text-blue-500",
-      bgColor: "bg-blue-100 dark:bg-blue-950/30",
+      iconColor: "text-blue-600 dark:text-blue-400",
+      bgColor: "bg-blue-100 dark:bg-blue-900/50",
+      textColor: "text-blue-900 dark:text-blue-100",
+      descColor: "text-blue-700 dark:text-blue-300",
     },
   ];
 
@@ -90,19 +98,19 @@ export default function LogPage({
 
       <ActiveTimers childId={childId} />
 
-      <div className="space-y-2">
+      <div className="space-y-3">
         {logOptions.map((option) => (
           <button
             key={option.type}
             onClick={() => setModalType(option.type)}
-            className={`w-full flex items-center gap-4 p-4 rounded-lg ${option.bgColor} hover:opacity-90 transition-opacity text-left`}
+            className={`w-full flex items-center gap-4 p-4 rounded-xl ${option.bgColor} hover:opacity-90 transition-opacity text-left border border-transparent dark:border-white/10`}
           >
-            <option.icon className={`h-8 w-8 ${option.color}`} />
+            <option.icon className={`h-8 w-8 ${option.iconColor}`} />
             <div className="flex-1">
-              <p className="font-semibold">{option.label}</p>
-              <p className="text-sm text-muted-foreground">{option.description}</p>
+              <p className={`font-semibold ${option.textColor}`}>{option.label}</p>
+              <p className={`text-sm ${option.descColor}`}>{option.description}</p>
             </div>
-            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <ChevronRight className={`h-5 w-5 ${option.iconColor}`} />
           </button>
         ))}
       </div>
