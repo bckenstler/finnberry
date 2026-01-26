@@ -61,6 +61,7 @@ type Activity =
 interface ActivityRowProps {
   activity: Activity;
   childId: string;
+  childName?: string;
 }
 
 const iconMap = {
@@ -71,7 +72,7 @@ const iconMap = {
   diaper: Droplets,
 };
 
-export function ActivityRow({ activity, childId }: ActivityRowProps) {
+export function ActivityRow({ activity, childId, childName = "Baby" }: ActivityRowProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { toast } = useToast();
@@ -134,31 +135,24 @@ export function ActivityRow({ activity, childId }: ActivityRowProps) {
     case "SLEEP": {
       category = "sleep";
       const r = activity.record;
-      const sleepTypeLabel = r.sleepType === "NIGHT" ? "night sleep" : "nap";
-      description = `Slept (${sleepTypeLabel})`;
+      const duration = r.endTime ? formatDurationPrecise(r.startTime, r.endTime) : "";
+      description = duration ? `${childName} slept for ${duration}` : `${childName} is sleeping`;
       timeDisplay = r.endTime
         ? formatTimeRange(r.startTime, r.endTime)
         : `${formatTimeShort(r.startTime)} - ongoing`;
-      details = r.endTime ? formatDurationPrecise(r.startTime, r.endTime) : "";
+      details = r.sleepType === "NIGHT" ? "Night" : "Nap";
       break;
     }
     case "FEEDING": {
       const r = activity.record;
       if (r.feedingType === "BREAST") {
         category = "nursing";
-        const sideLabel =
-          r.side === "LEFT"
-            ? "left side"
-            : r.side === "RIGHT"
-              ? "right side"
-              : "both sides";
-        description = `Breastfed (${sideLabel})`;
+        const duration = r.endTime ? formatDurationPrecise(r.startTime, r.endTime) : "";
+        description = duration ? `${childName} was breastfed for ${duration}` : `${childName} is breastfeeding`;
         timeDisplay = r.endTime
           ? formatTimeRange(r.startTime, r.endTime)
           : `${formatTimeShort(r.startTime)} - ongoing`;
-        details = r.endTime
-          ? formatDurationPrecise(r.startTime, r.endTime)
-          : "";
+        details = r.side === "LEFT" ? "Left" : r.side === "RIGHT" ? "Right" : "Both";
       } else if (r.feedingType === "BOTTLE") {
         category = "bottle";
         const amount = r.amountMl
@@ -166,13 +160,13 @@ export function ActivityRow({ activity, childId }: ActivityRowProps) {
           : "";
         const contentType =
           r.bottleContentType === "BREAST_MILK" ? "breast milk" : "formula";
-        description = `Had a ${amount} bottle of ${contentType}`;
+        description = `${childName} had a ${amount} bottle of ${contentType}`;
         timeDisplay = formatTimeShort(r.startTime);
         details = "";
       } else {
         category = "solids";
         const foods = r.foodItems?.join(", ") || "solids";
-        description = `Ate ${foods}`;
+        description = `${childName} ate ${foods}`;
         timeDisplay = formatTimeShort(r.startTime);
         details = "";
       }
@@ -181,17 +175,17 @@ export function ActivityRow({ activity, childId }: ActivityRowProps) {
     case "DIAPER": {
       category = "diaper";
       const r = activity.record;
-      const typeLabel =
-        r.diaperType === "WET"
-          ? "wet"
-          : r.diaperType === "DIRTY"
-            ? "dirty"
-            : r.diaperType === "BOTH"
-              ? "mixed"
-              : "dry";
-      description = `Diaper change (${typeLabel})`;
+      if (r.diaperType === "WET") {
+        description = `${childName} had pee 💧`;
+      } else if (r.diaperType === "DIRTY") {
+        description = `${childName} had poo 💩`;
+      } else if (r.diaperType === "BOTH") {
+        description = `${childName} had poo and pee 💧💩`;
+      } else {
+        description = `${childName} had a dry diaper`;
+      }
       timeDisplay = formatTimeShort(r.time);
-      details = r.amount || "";
+      details = r.amount ? (r.amount === "SMALL" ? "S" : r.amount === "MEDIUM" ? "M" : "L") : "";
       break;
     }
   }
