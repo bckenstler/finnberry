@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { TimeRow } from "@/components/ui/time-row";
+import { SimpleToggleGroup } from "@/components/ui/simple-toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { mlToOz, ozToMl } from "@finnberry/utils";
 import { Play, Droplets, Cloud, CloudRain } from "lucide-react";
@@ -22,17 +24,6 @@ interface LogModalProps {
   type: LogType;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function formatTimeForInput(date: Date): string {
-  return date.toISOString().slice(0, 16);
-}
-
-function formatTimeDisplay(date: Date): string {
-  const today = new Date();
-  const isToday = date.toDateString() === today.toDateString();
-  const timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  return isToday ? `Today, ${timeStr}` : date.toLocaleDateString([], { month: "short", day: "numeric" }) + `, ${timeStr}`;
 }
 
 export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
@@ -53,73 +44,6 @@ export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
         )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function TimeRow({
-  label,
-  value,
-  onChange,
-  placeholder = "Set time"
-}: {
-  label: string;
-  value: Date | null;
-  onChange: (date: Date | null) => void;
-  placeholder?: string;
-}) {
-  const [editing, setEditing] = useState(false);
-
-  return (
-    <div className="flex items-center justify-between py-4 px-6 border-b border-border">
-      <span className="text-muted-foreground">{label}</span>
-      {editing ? (
-        <input
-          type="datetime-local"
-          className="bg-transparent border-none text-right text-primary focus:outline-none"
-          value={value ? formatTimeForInput(value) : ""}
-          onChange={(e) => {
-            onChange(e.target.value ? new Date(e.target.value) : null);
-          }}
-          onBlur={() => setEditing(false)}
-          autoFocus
-        />
-      ) : (
-        <button
-          onClick={() => setEditing(true)}
-          className="text-primary hover:underline"
-        >
-          {value ? formatTimeDisplay(value) : placeholder}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function ToggleGroup<T extends string>({
-  options,
-  value,
-  onChange,
-}: {
-  options: { value: T; label: string }[];
-  value: T;
-  onChange: (value: T) => void;
-}) {
-  return (
-    <div className="flex rounded-lg overflow-hidden border border-border mx-6 my-4">
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={`flex-1 py-2 px-4 text-sm font-medium transition-colors ${
-            value === option.value
-              ? "bg-primary text-primary-foreground"
-              : "bg-muted hover:bg-muted/80"
-          }`}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
@@ -175,7 +99,7 @@ function SleepModal({ childId, onClose }: { childId: string; onClose: () => void
         <DialogTitle className="text-center">Add Sleep</DialogTitle>
       </DialogHeader>
 
-      <ToggleGroup
+      <SimpleToggleGroup
         options={[
           { value: "NAP", label: "Nap" },
           { value: "NIGHT", label: "Night" },
@@ -262,7 +186,7 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
         <DialogTitle className="text-center">Add Breastfeeding</DialogTitle>
       </DialogHeader>
 
-      <ToggleGroup
+      <SimpleToggleGroup
         options={[
           { value: "LEFT", label: "Left" },
           { value: "RIGHT", label: "Right" },
@@ -338,7 +262,7 @@ function BottleModal({ childId, onClose }: { childId: string; onClose: () => voi
         <DialogTitle className="text-center">Add Bottle</DialogTitle>
       </DialogHeader>
 
-      <ToggleGroup
+      <SimpleToggleGroup
         options={[
           { value: "FORMULA", label: "Formula" },
           { value: "BREAST_MILK", label: "Breast Milk" },
