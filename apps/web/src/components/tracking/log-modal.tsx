@@ -17,15 +17,41 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Slider } from "@/components/ui/slider";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { TimeRow } from "@/components/ui/time-row";
 import { SimpleToggleGroup } from "@/components/ui/simple-toggle-group";
 import { useToast } from "@/hooks/use-toast";
-import { mlToOz, ozToMl } from "@finnberry/utils";
-import { Play, Square, Droplets, Cloud, CloudRain } from "lucide-react";
+import {
+  mlToOz,
+  ozToMl,
+  lbsOzToKg,
+  kgToLbs,
+  ftInToCm,
+  cmToFtIn,
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+} from "@finnberry/utils";
+import {
+  Play,
+  Square,
+  Droplets,
+  Cloud,
+  CloudRain,
+  Bath,
+  Baby,
+  Tv,
+  BookOpen,
+  Heart,
+  Sun,
+  Home,
+  Sparkles,
+  HelpCircle,
+} from "lucide-react";
 import { TimerDisplay } from "@/components/tracking/timer-display";
 import { BreastSideButton } from "@/components/tracking/breast-side-button";
 
-type LogType = "sleep" | "breast" | "bottle" | "diaper";
+type LogType = "sleep" | "breast" | "bottle" | "diaper" | "growth" | "temperature" | "activity";
 
 interface LogModalProps {
   childId: string;
@@ -49,6 +75,15 @@ export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
         )}
         {type === "diaper" && (
           <DiaperModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "growth" && (
+          <GrowthModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "temperature" && (
+          <TemperatureModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "activity" && (
+          <ActivityModal childId={childId} onClose={() => onOpenChange(false)} />
         )}
       </DialogContent>
     </Dialog>
@@ -730,6 +765,403 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
           className="w-full h-14 text-lg"
           onClick={handleSave}
           disabled={logDiaper.isPending}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// Growth Modal - for logging height, weight, and head circumference
+function GrowthModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [date, setDate] = useState<Date | null>(new Date());
+  const [unit, setUnit] = useState<"imperial" | "metric">("imperial");
+
+  // Imperial values
+  const [weightLbs, setWeightLbs] = useState(8);
+  const [weightOz, setWeightOz] = useState(0);
+  const [heightFt, setHeightFt] = useState(1);
+  const [heightIn, setHeightIn] = useState(10);
+  const [headIn, setHeadIn] = useState(14.5);
+
+  // Get latest growth data to pre-fill
+  const { data: latestGrowth } = trpc.growth.getLatest.useQuery({ childId });
+
+  // Pre-fill with latest values
+  useEffect(() => {
+    if (latestGrowth) {
+      if (latestGrowth.weightKg) {
+        const { lbs, oz } = kgToLbs(latestGrowth.weightKg);
+        setWeightLbs(lbs);
+        setWeightOz(oz);
+      }
+      if (latestGrowth.heightCm) {
+        const { ft, inches } = cmToFtIn(latestGrowth.heightCm);
+        setHeightFt(ft);
+        setHeightIn(inches);
+      }
+      if (latestGrowth.headCircumferenceCm) {
+        const { inches } = cmToFtIn(latestGrowth.headCircumferenceCm);
+        setHeadIn(inches);
+      }
+    }
+  }, [latestGrowth]);
+
+  const logGrowth = trpc.growth.log.useMutation({
+    onSuccess: () => {
+      utils.growth.list.invalidate();
+      utils.growth.getLatest.invalidate({ childId });
+      toast({ title: "Growth data logged" });
+      onClose();
+    },
+  });
+
+  const handleSave = () => {
+    if (!date) return;
+
+    const weightKg = unit === "imperial"
+      ? lbsOzToKg(weightLbs, weightOz)
+      : weightLbs; // In metric mode, weightLbs stores kg
+
+    const heightCm = unit === "imperial"
+      ? ftInToCm(heightFt, heightIn)
+      : heightFt * 100 + heightIn; // In metric mode, heightFt stores meters (as whole), heightIn stores cm
+
+    const headCm = unit === "imperial"
+      ? headIn * 2.54
+      : headIn;
+
+    logGrowth.mutate({
+      childId,
+      date,
+      weightKg: weightKg > 0 ? weightKg : undefined,
+      heightCm: heightCm > 0 ? heightCm : undefined,
+      headCircumferenceCm: headCm > 0 ? headCm : undefined,
+    });
+  };
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add growth data</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Date" value={date} onChange={setDate} />
+
+      <div className="px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-muted-foreground">Height:</span>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={heightFt}
+              onChange={(e) => setHeightFt(parseInt(e.target.value) || 0)}
+              className="w-16 text-right"
+              min="0"
+              max="5"
+            />
+            <span className="text-primary">{unit === "imperial" ? "ft" : "m"}</span>
+            <Input
+              type="number"
+              value={heightIn}
+              onChange={(e) => setHeightIn(parseFloat(e.target.value) || 0)}
+              className="w-16 text-right"
+              min="0"
+              max={unit === "imperial" ? "11.9" : "99"}
+              step="0.1"
+            />
+            <span className="text-primary">{unit === "imperial" ? "in" : "cm"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-muted-foreground">Weight:</span>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={weightLbs}
+              onChange={(e) => setWeightLbs(parseInt(e.target.value) || 0)}
+              className="w-16 text-right"
+              min="0"
+              max="100"
+            />
+            <span className="text-primary">{unit === "imperial" ? "lbs" : "kg"}</span>
+            <Input
+              type="number"
+              value={weightOz}
+              onChange={(e) => setWeightOz(parseFloat(e.target.value) || 0)}
+              className="w-16 text-right"
+              min="0"
+              max={unit === "imperial" ? "15.9" : "999"}
+              step="0.1"
+            />
+            <span className="text-primary">{unit === "imperial" ? "oz" : "g"}</span>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Head circumference:</span>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={headIn}
+              onChange={(e) => setHeadIn(parseFloat(e.target.value) || 0)}
+              className="w-20 text-right"
+              min="0"
+              max="30"
+              step="0.1"
+            />
+            <span className="text-primary">{unit === "imperial" ? "in" : "cm"}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-6">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={logGrowth.isPending}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// Temperature Modal - for logging body temperature
+function TemperatureModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [time, setTime] = useState<Date | null>(new Date());
+  const [unit, setUnit] = useState<"F" | "C">("F");
+  const [temperatureF, setTemperatureF] = useState(98.6);
+  const [notes, setNotes] = useState("");
+  const [showNotes, setShowNotes] = useState(false);
+
+  const logTemperature = trpc.temperature.log.useMutation({
+    onSuccess: () => {
+      utils.temperature.list.invalidate();
+      utils.temperature.getLatest.invalidate({ childId });
+      toast({ title: "Temperature logged" });
+      onClose();
+    },
+  });
+
+  const handleSave = () => {
+    if (!time) return;
+
+    const temperatureCelsius = unit === "F"
+      ? fahrenheitToCelsius(temperatureF)
+      : temperatureF;
+
+    logTemperature.mutate({
+      childId,
+      time,
+      temperatureCelsius,
+      notes: notes || undefined,
+    });
+  };
+
+  const displayTemp = unit === "F" ? temperatureF : celsiusToFahrenheit(temperatureF) > 0 ? fahrenheitToCelsius(temperatureF) : temperatureF;
+  const minTemp = unit === "F" ? 93 : 34;
+  const maxTemp = unit === "F" ? 108 : 42;
+
+  // Temperature color based on value
+  const getTempColor = () => {
+    const tempF = unit === "F" ? temperatureF : celsiusToFahrenheit(temperatureF);
+    if (tempF < 97) return "text-blue-500";
+    if (tempF <= 99.5) return "text-green-500";
+    if (tempF <= 100.4) return "text-yellow-500";
+    return "text-red-500";
+  };
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Temperature</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Start time" value={time} onChange={setTime} />
+
+      <div className="px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-muted-foreground">Temperature</span>
+          <div className="flex rounded overflow-hidden border border-border">
+            <button
+              onClick={() => {
+                if (unit === "F") return;
+                // Convert C to F
+                setTemperatureF(celsiusToFahrenheit(temperatureF));
+                setUnit("F");
+              }}
+              className={`px-3 py-1 text-sm ${unit === "C" ? "bg-muted" : "bg-primary text-primary-foreground"}`}
+            >
+              °C
+            </button>
+            <button
+              onClick={() => {
+                if (unit === "C") return;
+                // Convert F to C
+                setTemperatureF(fahrenheitToCelsius(temperatureF));
+                setUnit("C");
+              }}
+              className={`px-3 py-1 text-sm ${unit === "F" ? "bg-primary text-primary-foreground" : "bg-muted"}`}
+            >
+              °F
+            </button>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center py-4">
+          <div className="flex flex-col items-center">
+            <span className={`text-4xl font-bold ${getTempColor()}`}>
+              {temperatureF.toFixed(1)} °{unit}
+            </span>
+          </div>
+        </div>
+
+        {/* Thermometer Slider */}
+        <div className="py-4">
+          <Slider
+            value={[temperatureF]}
+            onValueChange={([val]) => setTemperatureF(val)}
+            min={minTemp}
+            max={maxTemp}
+            step={0.1}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>{minTemp}°{unit}</span>
+            <span>{maxTemp}°{unit}</span>
+          </div>
+        </div>
+      </div>
+
+      {showNotes ? (
+        <div className="px-6 py-4 border-b border-border">
+          <Textarea
+            placeholder="Add a note..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="resize-none"
+            rows={2}
+          />
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowNotes(true)}
+          className="w-full px-6 py-3 text-left text-muted-foreground hover:bg-muted/50 border-b border-border"
+        >
+          + add note
+        </button>
+      )}
+
+      <div className="p-6">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={logTemperature.isPending}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// Activity type options matching Prisma enum
+type ActivityType = "TUMMY_TIME" | "BATH" | "OUTDOOR_PLAY" | "INDOOR_PLAY" | "SCREEN_TIME" | "SKIN_TO_SKIN" | "STORYTIME" | "TEETH_BRUSHING" | "OTHER";
+
+const activityOptions: { value: ActivityType; label: string; icon: typeof Bath }[] = [
+  { value: "BATH", label: "Bath", icon: Bath },
+  { value: "TUMMY_TIME", label: "Tummy time", icon: Baby },
+  { value: "STORYTIME", label: "Story time", icon: BookOpen },
+  { value: "SCREEN_TIME", label: "Screen time", icon: Tv },
+  { value: "SKIN_TO_SKIN", label: "Skin to skin", icon: Heart },
+  { value: "OUTDOOR_PLAY", label: "Outdoor", icon: Sun },
+  { value: "INDOOR_PLAY", label: "Indoor", icon: Home },
+  { value: "TEETH_BRUSHING", label: "Teeth", icon: Sparkles },
+  { value: "OTHER", label: "Other", icon: HelpCircle },
+];
+
+// Activity Modal - for logging activities like bath, tummy time, etc.
+function ActivityModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [selectedType, setSelectedType] = useState<ActivityType | null>(null);
+
+  const logActivity = trpc.activity.log.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate();
+      utils.activity.summary.invalidate({ childId });
+      toast({ title: "Activity logged" });
+      onClose();
+    },
+  });
+
+  const handleSave = () => {
+    if (!startTime || !selectedType) return;
+
+    logActivity.mutate({
+      childId,
+      activityType: selectedType,
+      startTime,
+    });
+  };
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add activity</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+
+      <div className="px-6 py-4">
+        <div className="flex flex-wrap justify-center gap-4">
+          {activityOptions.map((option) => (
+            <button
+              key={option.value}
+              onClick={() => setSelectedType(option.value)}
+              className={`flex flex-col items-center gap-2 p-3 rounded-full w-20 h-20 transition-colors ${
+                selectedType === option.value
+                  ? "bg-primary/20 border-2 border-primary"
+                  : "bg-muted border-2 border-transparent hover:bg-muted/80"
+              }`}
+            >
+              <option.icon
+                className={`h-6 w-6 ${
+                  selectedType === option.value ? "text-primary" : "text-muted-foreground"
+                }`}
+              />
+              <span
+                className={`text-xs text-center leading-tight ${
+                  selectedType === option.value ? "text-primary" : "text-muted-foreground"
+                }`}
+              >
+                {option.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-6 pt-0">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={logActivity.isPending || !selectedType}
         >
           Save
         </Button>

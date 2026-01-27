@@ -7,6 +7,7 @@ import { diaperRouter } from "./routers/diaper";
 import { pumpingRouter } from "./routers/pumping";
 import { growthRouter } from "./routers/growth";
 import { activityRouter } from "./routers/activity";
+import { temperatureRouter } from "./routers/temperature";
 import { medicineRouter } from "./routers/medicine";
 import { userRouter } from "./routers/user";
 import { timelineRouter } from "./routers/timeline";
@@ -20,6 +21,7 @@ export const appRouter = createTRPCRouter({
   pumping: pumpingRouter,
   growth: growthRouter,
   activity: activityRouter,
+  temperature: temperatureRouter,
   medicine: medicineRouter,
   user: userRouter,
   timeline: timelineRouter,

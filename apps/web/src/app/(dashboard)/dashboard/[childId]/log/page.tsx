@@ -6,9 +6,18 @@ import { ActiveTimers } from "@/components/tracking/active-timers";
 import { LogModal } from "@/components/tracking/log-modal";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowLeft, Moon, Baby, Droplets, ChevronRight } from "lucide-react";
+import {
+  ArrowLeft,
+  Moon,
+  Baby,
+  Droplets,
+  ChevronRight,
+  Ruler,
+  Thermometer,
+  Sparkles,
+} from "lucide-react";
 
-type LogType = "sleep" | "breast" | "bottle" | "diaper";
+type LogType = "sleep" | "breast" | "bottle" | "diaper" | "growth" | "temperature" | "activity";
 
 export default function LogPage({
   params,
@@ -79,6 +88,36 @@ export default function LogPage({
       bgColor: "bg-blue-100 dark:bg-blue-900/50",
       textColor: "text-blue-900 dark:text-blue-100",
       descColor: "text-blue-700 dark:text-blue-300",
+    },
+    {
+      type: "growth" as const,
+      label: "Growth",
+      description: "Log height, weight, head circumference",
+      icon: Ruler,
+      iconColor: "text-green-600 dark:text-green-400",
+      bgColor: "bg-green-100 dark:bg-green-900/50",
+      textColor: "text-green-900 dark:text-green-100",
+      descColor: "text-green-700 dark:text-green-300",
+    },
+    {
+      type: "temperature" as const,
+      label: "Temperature",
+      description: "Log body temperature",
+      icon: Thermometer,
+      iconColor: "text-rose-600 dark:text-rose-400",
+      bgColor: "bg-rose-100 dark:bg-rose-900/50",
+      textColor: "text-rose-900 dark:text-rose-100",
+      descColor: "text-rose-700 dark:text-rose-300",
+    },
+    {
+      type: "activity" as const,
+      label: "Activity",
+      description: "Log bath, tummy time, and more",
+      icon: Sparkles,
+      iconColor: "text-amber-600 dark:text-amber-400",
+      bgColor: "bg-amber-100 dark:bg-amber-900/50",
+      textColor: "text-amber-900 dark:text-amber-100",
+      descColor: "text-amber-700 dark:text-amber-300",
     },
   ];
 
