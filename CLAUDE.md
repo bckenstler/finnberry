@@ -4,7 +4,7 @@ This file provides context for Claude when working on this codebase.
 
 ## Project Overview
 
-Finnberry is an open-source baby tracking application (clone of Huckleberry) with MCP integration. It helps parents track sleep, feeding, diapers, and more with real-time sync across caregivers.
+Finnberry is an open-source baby tracking application (clone of Huckleberry) with MCP integration. It helps parents track sleep, feeding, diapers, pumping, growth, temperature, activities, and medicine with real-time sync across caregivers.
 
 ## Tech Stack
 
@@ -50,14 +50,14 @@ finnberry/
 │
 ├── packages/
 │   ├── db/                      # Prisma schema + client
-│   │   ├── prisma/schema.prisma # Database schema (16 models)
+│   │   ├── prisma/schema.prisma # Database schema (17 models)
 │   │   └── src/index.ts         # Prisma client singleton
 │   │
 │   ├── api/                     # tRPC routers
 │   │   └── src/
 │   │       ├── trpc.ts          # tRPC context, procedures, middleware
 │   │       ├── root.ts          # Root router combining all routers
-│   │       └── routers/         # Individual routers (11 total)
+│   │       └── routers/         # Individual routers (12 total)
 │   │
 │   ├── schemas/                 # Shared Zod validation schemas
 │   │   └── src/                 # One file per domain (sleep, feeding, etc.)
@@ -65,7 +65,7 @@ finnberry/
 │   └── utils/                   # Shared utilities
 │       └── src/
 │           ├── date.ts          # Date formatting, ranges, duration calc
-│           ├── format.ts        # ML, weight, height formatters
+│           ├── format.ts        # ML, oz, weight, height, temperature formatters
 │           └── timeline.ts      # Timeline data utilities
 │
 └── Configuration files
@@ -224,7 +224,7 @@ Key models in `packages/db/prisma/schema.prisma`:
 - `Household`, `HouseholdMember`, `HouseholdInvite` - Multi-caregiver
 - `Child` - Child profiles
 - `SleepRecord`, `FeedingRecord`, `DiaperRecord` - Core tracking
-- `PumpingRecord`, `GrowthRecord`, `ActivityRecord` - Extended tracking
+- `PumpingRecord`, `GrowthRecord`, `ActivityRecord`, `TemperatureRecord` - Extended tracking
 - `Medicine`, `MedicineRecord` - Medicine tracking
 
 ## Git Workflow
