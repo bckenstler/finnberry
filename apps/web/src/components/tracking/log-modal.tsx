@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/provider";
 import { useTimer } from "@/hooks/use-timer";
-import { useTimerStore } from "@/stores/timer-store";
+import {
+  useTimerStore,
+  getLeftElapsedMs,
+  getRightElapsedMs,
+  getTotalBreastfeedingElapsedMs,
+} from "@/stores/timer-store";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -244,11 +249,20 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
   const utils = trpc.useUtils();
   const feedingTimer = useTimer(childId, "feeding");
   const stopTimer = useTimerStore((state) => state.stopTimer);
+  const switchSideInStore = useTimerStore((state) => state.switchBreastfeedingSide);
 
   const [side, setSide] = useState<"LEFT" | "RIGHT">("LEFT");
   const [startTime, setStartTime] = useState<Date | null>(new Date());
   const [endTime, setEndTime] = useState<Date | null>(null);
   const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Force re-render every second to update elapsed time displays
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!feedingTimer.isRunning) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [feedingTimer.isRunning]);
 
   // Query for last side info
   const { data: summary } = trpc.feeding.summary.useQuery({
@@ -297,17 +311,52 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
     },
   });
 
+  const switchBreastfeedingSide = trpc.feeding.switchBreastfeedingSide.useMutation();
+
   const handleSideClick = (clickedSide: "LEFT" | "RIGHT") => {
-    if (feedingTimer.isRunning) return;
+    if (feedingTimer.isRunning) {
+      // Switch sides - calculate current per-side times before switching
+      const timer = feedingTimer.timer;
+      if (!timer?.recordId) return;
+
+      const leftMs = getLeftElapsedMs(timer);
+      const rightMs = getRightElapsedMs(timer);
+
+      // Switch side in store
+      switchSideInStore(timer.id, clickedSide);
+
+      // Update database with accumulated times
+      switchBreastfeedingSide.mutate({
+        id: timer.recordId,
+        newSide: clickedSide,
+        leftDurationSeconds: Math.round(leftMs / 1000),
+        rightDurationSeconds: Math.round(rightMs / 1000),
+      });
+      return;
+    }
     setSide(clickedSide);
     // Start the timer immediately when clicking a side
     startBreastfeeding.mutate({ childId, side: clickedSide, startTime: new Date() });
   };
 
   const handleStop = async () => {
-    if (feedingTimer.timer?.recordId) {
-      stopTimer(feedingTimer.timer.id);
-      await endBreastfeeding.mutateAsync({ id: feedingTimer.timer.recordId });
+    const timer = feedingTimer.timer;
+    if (timer?.recordId) {
+      // Calculate final per-side durations
+      const leftMs = getLeftElapsedMs(timer);
+      const rightMs = getRightElapsedMs(timer);
+
+      // Determine final side based on which has more time, or BOTH if both used
+      const usedBothSides = leftMs > 0 && rightMs > 0;
+      const finalSide = usedBothSides ? "BOTH" : (leftMs > 0 ? "LEFT" : "RIGHT");
+
+      stopTimer(timer.id);
+      await endBreastfeeding.mutateAsync({
+        id: timer.recordId,
+        side: finalSide,
+        leftDurationSeconds: Math.round(leftMs / 1000),
+        rightDurationSeconds: Math.round(rightMs / 1000),
+      });
     }
   };
 
@@ -322,8 +371,13 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
     }
   };
 
-  const isLoading = startBreastfeeding.isPending || logBreastfeeding.isPending || endBreastfeeding.isPending;
+  const isLoading = startBreastfeeding.isPending || logBreastfeeding.isPending || endBreastfeeding.isPending || switchBreastfeedingSide.isPending;
   const activeSide = feedingTimer.timer?.metadata?.feedingSide as "LEFT" | "RIGHT" | undefined;
+
+  // Calculate per-side elapsed times for display
+  const leftElapsedMs = getLeftElapsedMs(feedingTimer.timer);
+  const rightElapsedMs = getRightElapsedMs(feedingTimer.timer);
+  const totalElapsedMs = getTotalBreastfeedingElapsedMs(feedingTimer.timer);
 
   // Timer is running - show running state
   if (feedingTimer.isRunning && !showManualEntry) {
@@ -334,24 +388,24 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
         </DialogHeader>
 
         <div className="flex flex-col items-center py-6 gap-6">
-          <TimerDisplay elapsedMs={feedingTimer.elapsedMs} size="large" />
+          <TimerDisplay elapsedMs={totalElapsedMs} size="large" />
 
           <div className="flex gap-6">
             <BreastSideButton
               side="LEFT"
               isActive={activeSide === "LEFT"}
               isLastSide={false}
-              elapsedMs={activeSide === "LEFT" ? feedingTimer.elapsedMs : 0}
-              onClick={() => {}}
-              disabled={true}
+              elapsedMs={leftElapsedMs}
+              onClick={() => handleSideClick("LEFT")}
+              disabled={activeSide === "LEFT" || isLoading}
             />
             <BreastSideButton
               side="RIGHT"
               isActive={activeSide === "RIGHT"}
               isLastSide={false}
-              elapsedMs={activeSide === "RIGHT" ? feedingTimer.elapsedMs : 0}
-              onClick={() => {}}
-              disabled={true}
+              elapsedMs={rightElapsedMs}
+              onClick={() => handleSideClick("RIGHT")}
+              disabled={activeSide === "RIGHT" || isLoading}
             />
           </div>
         </div>

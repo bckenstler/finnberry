@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Play } from "lucide-react";
 import { formatElapsedTime } from "@/stores/timer-store";
 
 interface BreastSideButtonProps {
@@ -36,27 +35,29 @@ export function BreastSideButton({
         disabled && "opacity-50 cursor-not-allowed"
       )}
     >
-      {/* Breast icon representation */}
+      {/* Timer display or breast icon */}
       <div className="relative mb-1">
-        {isActive ? (
-          <span className="text-xl font-mono font-semibold">
+        {isActive || elapsedMs > 0 ? (
+          // Show elapsed time when active OR when there's accumulated time
+          <span className={cn(
+            "text-xl font-mono font-semibold",
+            isActive ? "text-primary-foreground" : "text-primary"
+          )}>
             {formatElapsedTime(elapsedMs)}
           </span>
         ) : (
+          // Show breast icon when idle and no time accumulated
           <div className="flex items-center gap-1">
             <div
               className={cn(
                 "w-8 h-8 rounded-full border-2 flex items-center justify-center",
-                isActive
-                  ? "border-primary-foreground"
-                  : "border-primary/60"
+                "border-primary/60"
               )}
             >
               {/* Nipple indicator pointing inward */}
               <div
                 className={cn(
-                  "w-2 h-2 rounded-full",
-                  isActive ? "bg-primary-foreground" : "bg-primary/60",
+                  "w-2 h-2 rounded-full bg-primary/60",
                   isLeft ? "mr-1" : "ml-1"
                 )}
               />
@@ -65,8 +66,8 @@ export function BreastSideButton({
         )}
       </div>
 
-      {/* Dashed line separator (only when not active) */}
-      {!isActive && (
+      {/* Dashed line separator (only when idle with no time) */}
+      {!isActive && elapsedMs === 0 && (
         <div className="w-12 border-t border-dashed border-primary/60 my-1" />
       )}
 
@@ -83,16 +84,6 @@ export function BreastSideButton({
       {/* Last Side badge */}
       {isLastSide && !isActive && (
         <span className="text-[10px] text-primary/70 mt-0.5">Last Side</span>
-      )}
-
-      {/* Play icon overlay for idle state */}
-      {!isActive && (
-        <Play
-          className={cn(
-            "absolute top-3 right-3 h-4 w-4",
-            "text-primary/60"
-          )}
-        />
       )}
     </button>
   );
