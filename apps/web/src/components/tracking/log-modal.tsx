@@ -20,14 +20,42 @@ import { Slider } from "@/components/ui/slider";
 import { TimeRow } from "@/components/ui/time-row";
 import { SimpleToggleGroup } from "@/components/ui/simple-toggle-group";
 import { useToast } from "@/hooks/use-toast";
-import { mlToOz, ozToMl } from "@finnberry/utils";
-import { Play, Square, Droplets, Cloud, CloudRain, Plus, Check, X } from "lucide-react";
+import {
+  mlToOz,
+  ozToMl,
+  kgToLbs,
+  lbsToKg,
+  kgToLbsOz,
+  lbsOzToKg,
+  cmToFtIn,
+  ftInToCm,
+  celsiusToFahrenheit,
+  fahrenheitToCelsius,
+} from "@finnberry/utils";
+import {
+  Play,
+  Square,
+  Droplets,
+  Cloud,
+  CloudRain,
+  Plus,
+  Check,
+  X,
+  Bath,
+  Baby as BabyIcon,
+  Tv,
+  Heart,
+  BookOpen,
+  Smile,
+  Sun,
+  Home,
+} from "lucide-react";
 import { TimerDisplay } from "@/components/tracking/timer-display";
 import { BreastSideButton } from "@/components/tracking/breast-side-button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
-type LogType = "sleep" | "breast" | "bottle" | "diaper" | "solids" | "pumping" | "medicine";
+type LogType = "sleep" | "breast" | "bottle" | "diaper" | "solids" | "pumping" | "medicine" | "growth" | "temperature" | "activity";
 
 interface LogModalProps {
   childId: string;
@@ -60,6 +88,15 @@ export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
         )}
         {type === "medicine" && (
           <MedicineModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "growth" && (
+          <GrowthModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "temperature" && (
+          <TemperatureModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "activity" && (
+          <ActivityModal childId={childId} onClose={() => onOpenChange(false)} />
         )}
       </DialogContent>
     </Dialog>
@@ -1425,6 +1462,645 @@ function MedicineModal({ childId, onClose }: { childId: string; onClose: () => v
         >
           Save
         </Button>
+      </div>
+    </>
+  );
+}
+
+function GrowthModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [date, setDate] = useState<Date | null>(new Date());
+  const [unit, setUnit] = useState<"metric" | "imperial">("imperial");
+  const [weightKg, setWeightKg] = useState<number | null>(null);
+  const [heightCm, setHeightCm] = useState<number | null>(null);
+  const [headCm, setHeadCm] = useState<number | null>(null);
+  const [notes, setNotes] = useState("");
+
+  // Imperial input state
+  const [weightLbs, setWeightLbs] = useState<number>(0);
+  const [weightOz, setWeightOz] = useState<number>(0);
+  const [heightFt, setHeightFt] = useState<number>(0);
+  const [heightIn, setHeightIn] = useState<number>(0);
+
+  // Fetch latest growth record to pre-fill
+  const { data: latestGrowth } = trpc.growth.getLatest.useQuery({ childId });
+
+  // Pre-fill with latest values when data loads
+  useEffect(() => {
+    if (latestGrowth) {
+      if (latestGrowth.weightKg) {
+        setWeightKg(latestGrowth.weightKg);
+        const { lbs, oz } = kgToLbsOz(latestGrowth.weightKg);
+        setWeightLbs(lbs);
+        setWeightOz(oz);
+      }
+      if (latestGrowth.heightCm) {
+        setHeightCm(latestGrowth.heightCm);
+        const { ft, inches } = cmToFtIn(latestGrowth.heightCm);
+        setHeightFt(ft);
+        setHeightIn(inches);
+      }
+      if (latestGrowth.headCircumferenceCm) {
+        setHeadCm(latestGrowth.headCircumferenceCm);
+      }
+    }
+  }, [latestGrowth]);
+
+  const logGrowth = trpc.growth.log.useMutation({
+    onSuccess: () => {
+      utils.growth.list.invalidate();
+      utils.growth.getLatest.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Growth recorded" });
+      onClose();
+    },
+  });
+
+  const handleSave = () => {
+    if (!date) return;
+
+    let finalWeightKg = weightKg;
+    let finalHeightCm = heightCm;
+
+    if (unit === "imperial") {
+      if (weightLbs > 0 || weightOz > 0) {
+        finalWeightKg = lbsOzToKg(weightLbs, weightOz);
+      }
+      if (heightFt > 0 || heightIn > 0) {
+        finalHeightCm = ftInToCm(heightFt, heightIn);
+      }
+    }
+
+    logGrowth.mutate({
+      childId,
+      date,
+      weightKg: finalWeightKg ?? undefined,
+      heightCm: finalHeightCm ?? undefined,
+      headCircumferenceCm: headCm ?? undefined,
+      notes: notes || undefined,
+    });
+  };
+
+  const isLoading = logGrowth.isPending;
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Growth</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Date" value={date} onChange={setDate} />
+
+      {/* Unit toggle */}
+      <div className="px-6 py-3 border-b border-border">
+        <div className="flex justify-end">
+          <div className="flex rounded overflow-hidden border border-border">
+            <button
+              onClick={() => setUnit("imperial")}
+              className={`px-3 py-1.5 text-sm ${unit === "imperial" ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              lb/ft
+            </button>
+            <button
+              onClick={() => setUnit("metric")}
+              className={`px-3 py-1.5 text-sm ${unit === "metric" ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              kg/cm
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Weight */}
+      <div className="px-6 py-4 border-b border-border">
+        <p className="text-sm text-muted-foreground mb-2">Weight</p>
+        {unit === "imperial" ? (
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={weightLbs || ""}
+                  onChange={(e) => setWeightLbs(Number(e.target.value))}
+                  min="0"
+                  max="50"
+                />
+                <span className="text-muted-foreground">lb</span>
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={weightOz || ""}
+                  onChange={(e) => setWeightOz(Number(e.target.value))}
+                  min="0"
+                  max="15"
+                />
+                <span className="text-muted-foreground">oz</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              placeholder="0.00"
+              value={weightKg ?? ""}
+              onChange={(e) => setWeightKg(e.target.value ? Number(e.target.value) : null)}
+              step="0.01"
+              min="0"
+              max="50"
+            />
+            <span className="text-muted-foreground">kg</span>
+          </div>
+        )}
+      </div>
+
+      {/* Height */}
+      <div className="px-6 py-4 border-b border-border">
+        <p className="text-sm text-muted-foreground mb-2">Height</p>
+        {unit === "imperial" ? (
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={heightFt || ""}
+                  onChange={(e) => setHeightFt(Number(e.target.value))}
+                  min="0"
+                  max="6"
+                />
+                <span className="text-muted-foreground">ft</span>
+              </div>
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={heightIn || ""}
+                  onChange={(e) => setHeightIn(Number(e.target.value))}
+                  min="0"
+                  max="11"
+                />
+                <span className="text-muted-foreground">in</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              placeholder="0.0"
+              value={heightCm ?? ""}
+              onChange={(e) => setHeightCm(e.target.value ? Number(e.target.value) : null)}
+              step="0.1"
+              min="0"
+              max="200"
+            />
+            <span className="text-muted-foreground">cm</span>
+          </div>
+        )}
+      </div>
+
+      {/* Head circumference */}
+      <div className="px-6 py-4 border-b border-border">
+        <p className="text-sm text-muted-foreground mb-2">Head Circumference</p>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            placeholder="0.0"
+            value={headCm ?? ""}
+            onChange={(e) => setHeadCm(e.target.value ? Number(e.target.value) : null)}
+            step="0.1"
+            min="0"
+            max="100"
+          />
+          <span className="text-muted-foreground">cm</span>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="px-6 py-3">
+        <Textarea
+          placeholder="Add notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="min-h-[60px]"
+        />
+      </div>
+
+      <div className="p-6 pt-0">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={isLoading}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function TemperatureModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [time, setTime] = useState<Date | null>(new Date());
+  const [unit, setUnit] = useState<"F" | "C">("F");
+  const [temperatureCelsius, setTemperatureCelsius] = useState(37.0); // Normal body temp
+  const [notes, setNotes] = useState("");
+
+  const logTemperature = trpc.temperature.log.useMutation({
+    onSuccess: () => {
+      utils.temperature.list.invalidate();
+      utils.temperature.getLatest.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Temperature recorded" });
+      onClose();
+    },
+  });
+
+  const handleSave = () => {
+    if (!time) return;
+
+    logTemperature.mutate({
+      childId,
+      time,
+      temperatureCelsius,
+      notes: notes || undefined,
+    });
+  };
+
+  const displayTemp = unit === "F"
+    ? celsiusToFahrenheit(temperatureCelsius)
+    : temperatureCelsius;
+
+  const minTemp = unit === "F" ? 86 : 30;
+  const maxTemp = unit === "F" ? 113 : 45;
+
+  const handleSliderChange = (value: number) => {
+    if (unit === "F") {
+      setTemperatureCelsius(fahrenheitToCelsius(value));
+    } else {
+      setTemperatureCelsius(value);
+    }
+  };
+
+  // Temperature status and color
+  const getTemperatureStatus = () => {
+    if (temperatureCelsius < 36.1) return { label: "Low", color: "text-blue-500" };
+    if (temperatureCelsius <= 37.2) return { label: "Normal", color: "text-green-500" };
+    if (temperatureCelsius <= 38.0) return { label: "Elevated", color: "text-yellow-500" };
+    if (temperatureCelsius <= 39.0) return { label: "Fever", color: "text-orange-500" };
+    return { label: "High Fever", color: "text-red-500" };
+  };
+
+  const status = getTemperatureStatus();
+  const isLoading = logTemperature.isPending;
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Temperature</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Time" value={time} onChange={setTime} />
+
+      {/* Temperature display */}
+      <div className="flex flex-col items-center py-6 gap-2">
+        <div className="flex items-baseline gap-1">
+          <span className="text-5xl font-bold">{displayTemp.toFixed(1)}</span>
+          <span className="text-2xl text-muted-foreground">{unit === "F" ? "°F" : "°C"}</span>
+        </div>
+        <span className={`text-sm font-medium ${status.color}`}>{status.label}</span>
+      </div>
+
+      {/* Unit toggle */}
+      <div className="px-6 py-3 border-b border-border">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Unit</span>
+          <div className="flex rounded overflow-hidden border border-border">
+            <button
+              onClick={() => setUnit("F")}
+              className={`px-4 py-1.5 text-sm ${unit === "F" ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              °F
+            </button>
+            <button
+              onClick={() => setUnit("C")}
+              className={`px-4 py-1.5 text-sm ${unit === "C" ? "bg-primary text-primary-foreground" : ""}`}
+            >
+              °C
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Temperature slider */}
+      <div className="px-6 py-4 border-b border-border">
+        <Slider
+          value={[displayTemp]}
+          onValueChange={([val]) => handleSliderChange(val)}
+          min={minTemp}
+          max={maxTemp}
+          step={0.1}
+          className="w-full"
+        />
+        <div className="flex justify-between text-xs text-muted-foreground mt-1">
+          <span>{minTemp}°</span>
+          <span>{maxTemp}°</span>
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="px-6 py-3">
+        <Textarea
+          placeholder="Add notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="min-h-[60px]"
+        />
+      </div>
+
+      <div className="p-6 pt-0">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={isLoading}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+type ActivityType =
+  | "TUMMY_TIME"
+  | "BATH"
+  | "OUTDOOR_PLAY"
+  | "INDOOR_PLAY"
+  | "SCREEN_TIME"
+  | "SKIN_TO_SKIN"
+  | "STORYTIME"
+  | "TEETH_BRUSHING"
+  | "OTHER";
+
+const ACTIVITY_OPTIONS: { type: ActivityType; label: string; icon: typeof Bath }[] = [
+  { type: "TUMMY_TIME", label: "Tummy Time", icon: BabyIcon },
+  { type: "BATH", label: "Bath", icon: Bath },
+  { type: "OUTDOOR_PLAY", label: "Outdoor", icon: Sun },
+  { type: "INDOOR_PLAY", label: "Indoor", icon: Home },
+  { type: "SCREEN_TIME", label: "Screen", icon: Tv },
+  { type: "SKIN_TO_SKIN", label: "Skin to Skin", icon: Heart },
+  { type: "STORYTIME", label: "Story", icon: BookOpen },
+  { type: "TEETH_BRUSHING", label: "Teeth", icon: Smile },
+];
+
+function ActivityModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+  const activityTimer = useTimer(childId, "activity");
+  const stopTimer = useTimerStore((state) => state.stopTimer);
+
+  const [selectedType, setSelectedType] = useState<ActivityType | null>(null);
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [endTime, setEndTime] = useState<Date | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [notes, setNotes] = useState("");
+
+  const startActivity = trpc.activity.start.useMutation({
+    onSuccess: (result) => {
+      utils.activity.list.invalidate();
+      utils.timeline.getLastActivities.invalidate({ childId });
+      activityTimer.start({ activityType: selectedType ?? undefined });
+      activityTimer.update({ recordId: result.id });
+      toast({ title: "Activity timer started" });
+    },
+  });
+
+  const endActivity = trpc.activity.end.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate();
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Activity recorded" });
+      onClose();
+    },
+  });
+
+  const logActivity = trpc.activity.log.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate();
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Activity recorded" });
+      onClose();
+    },
+  });
+
+  const handleTypeSelect = (type: ActivityType) => {
+    if (activityTimer.isRunning) return;
+    setSelectedType(type);
+  };
+
+  const handleStart = () => {
+    if (!selectedType) return;
+    startActivity.mutate({ childId, activityType: selectedType, startTime: startTime ?? undefined });
+  };
+
+  const handleStop = async () => {
+    if (activityTimer.timer?.recordId) {
+      stopTimer(activityTimer.timer.id);
+      await endActivity.mutateAsync({
+        id: activityTimer.timer.recordId,
+        notes: notes || undefined,
+      });
+    }
+  };
+
+  const handleManualSave = () => {
+    if (!selectedType || !startTime) return;
+    logActivity.mutate({
+      childId,
+      activityType: selectedType,
+      startTime,
+      endTime: endTime ?? undefined,
+      notes: notes || undefined,
+    });
+  };
+
+  const isLoading = startActivity.isPending || endActivity.isPending || logActivity.isPending;
+  const runningType = activityTimer.timer?.metadata?.activityType as ActivityType | undefined;
+
+  // Timer is running
+  if (activityTimer.isRunning && !showManualEntry) {
+    const runningOption = ACTIVITY_OPTIONS.find(o => o.type === runningType);
+
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Activity in Progress</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center py-6 gap-4">
+          {runningOption && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
+              <runningOption.icon className="h-5 w-5 text-primary" />
+              <span className="text-primary font-medium">{runningOption.label}</span>
+            </div>
+          )}
+          <TimerDisplay elapsedMs={activityTimer.elapsedMs} size="large" />
+        </div>
+
+        <div className="px-6 py-3 border-t border-border">
+          <Textarea
+            placeholder="Add notes (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[60px]"
+          />
+        </div>
+
+        <div className="p-6 pt-0">
+          <Button
+            size="lg"
+            variant="destructive"
+            className="w-full h-14 text-lg"
+            onClick={handleStop}
+            disabled={isLoading}
+          >
+            <Square className="h-5 w-5 mr-2" />
+            Stop
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // Manual entry mode
+  if (showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Log Activity</DialogTitle>
+        </DialogHeader>
+
+        {/* Activity type grid */}
+        <div className="px-6 py-4">
+          <p className="text-sm text-muted-foreground mb-3">Activity Type</p>
+          <div className="grid grid-cols-4 gap-3">
+            {ACTIVITY_OPTIONS.map((option) => {
+              const isSelected = selectedType === option.type;
+              return (
+                <button
+                  key={option.type}
+                  onClick={() => setSelectedType(option.type)}
+                  className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                    isSelected
+                      ? "bg-primary/20 ring-2 ring-primary"
+                      : "bg-muted hover:bg-muted/80"
+                  }`}
+                >
+                  <option.icon className={`h-6 w-6 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                  <span className="text-xs text-center leading-tight">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+        <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+
+        <div className="px-6 py-3 border-t border-border">
+          <Textarea
+            placeholder="Add notes (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[60px]"
+          />
+        </div>
+
+        <div className="p-6 pt-0 flex flex-col gap-3">
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleManualSave}
+            disabled={isLoading || !selectedType || !startTime}
+          >
+            Save
+          </Button>
+          <button
+            onClick={() => setShowManualEntry(false)}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Start Timer Instead
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // Default: Activity selection with start timer UI
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Activity</DialogTitle>
+      </DialogHeader>
+
+      {/* Activity type grid */}
+      <div className="px-6 py-4">
+        <p className="text-sm text-muted-foreground mb-3">Select Activity</p>
+        <div className="grid grid-cols-4 gap-3">
+          {ACTIVITY_OPTIONS.map((option) => {
+            const isSelected = selectedType === option.type;
+            return (
+              <button
+                key={option.type}
+                onClick={() => handleTypeSelect(option.type)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                  isSelected
+                    ? "bg-primary/20 ring-2 ring-primary"
+                    : "bg-muted hover:bg-muted/80"
+                }`}
+              >
+                <option.icon className={`h-6 w-6 ${isSelected ? "text-primary" : "text-muted-foreground"}`} />
+                <span className="text-xs text-center leading-tight">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex flex-col items-center py-4 gap-4">
+        <TimerDisplay elapsedMs={0} />
+
+        <button
+          onClick={handleStart}
+          disabled={isLoading || !selectedType}
+          className="w-28 h-28 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
+        >
+          <Play className="h-6 w-6 text-primary" />
+          <span className="text-primary font-semibold text-sm">START</span>
+        </button>
+      </div>
+
+      <div className="p-6 pt-0 flex justify-center">
+        <button
+          onClick={() => setShowManualEntry(true)}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Manual Entry
+        </button>
       </div>
     </>
   );

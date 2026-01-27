@@ -136,14 +136,15 @@ model Child {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  household        Household         @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  sleepRecords     SleepRecord[]
-  feedingRecords   FeedingRecord[]
-  diaperRecords    DiaperRecord[]
-  pumpingRecords   PumpingRecord[]
-  growthRecords    GrowthRecord[]
-  activityRecords  ActivityRecord[]
-  medicines        Medicine[]
+  household           Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  sleepRecords        SleepRecord[]
+  feedingRecords      FeedingRecord[]
+  diaperRecords       DiaperRecord[]
+  pumpingRecords      PumpingRecord[]
+  growthRecords       GrowthRecord[]
+  activityRecords     ActivityRecord[]
+  temperatureRecords  TemperatureRecord[]
+  medicines           Medicine[]
 
   @@map("children")
 }
@@ -360,6 +361,25 @@ model ActivityRecord {
 
   @@index([childId, startTime])
   @@map("activity_records")
+}
+
+// ============================================================================
+// Temperature Tracking
+// ============================================================================
+
+model TemperatureRecord {
+  id                 String   @id @default(cuid())
+  childId            String   @map("child_id")
+  time               DateTime
+  temperatureCelsius Float    @map("temperature_celsius")
+  notes              String?
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  child Child @relation(fields: [childId], references: [id], onDelete: Cascade)
+
+  @@index([childId, time])
+  @@map("temperature_records")
 }
 
 // ============================================================================
