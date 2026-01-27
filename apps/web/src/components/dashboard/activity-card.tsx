@@ -8,7 +8,7 @@ import {
 import { TimeSince } from "@/components/ui/time-since";
 import { LogModal } from "@/components/tracking/log-modal";
 import { formatDurationPrecise } from "@finnberry/utils";
-import { Moon, Baby, Milk, Utensils, Droplets } from "lucide-react";
+import { Moon, Baby, Milk, Utensils, Droplets, HeartPulse, Pill, Ruler, Thermometer, Sparkles } from "lucide-react";
 
 interface ActivityCardProps {
   category: ActivityCategory;
@@ -24,14 +24,19 @@ const categoryConfig: Record<
   {
     icon: typeof Moon;
     label: string;
-    logType: "sleep" | "breast" | "bottle" | "diaper";
+    logType: "sleep" | "breast" | "bottle" | "diaper" | "solids" | "pumping" | "medicine" | "growth" | "temperature" | "activity";
   }
 > = {
   sleep: { icon: Moon, label: "Sleep", logType: "sleep" },
   nursing: { icon: Baby, label: "Nursing", logType: "breast" },
   bottle: { icon: Milk, label: "Bottle", logType: "bottle" },
-  solids: { icon: Utensils, label: "Solids", logType: "bottle" },
+  solids: { icon: Utensils, label: "Solids", logType: "solids" },
   diaper: { icon: Droplets, label: "Diaper", logType: "diaper" },
+  pumping: { icon: HeartPulse, label: "Pumping", logType: "pumping" },
+  medicine: { icon: Pill, label: "Medicine", logType: "medicine" },
+  growth: { icon: Ruler, label: "Growth", logType: "growth" },
+  temperature: { icon: Thermometer, label: "Temperature", logType: "temperature" },
+  activity: { icon: Sparkles, label: "Activity", logType: "activity" },
 };
 
 export function ActivityCard({
@@ -162,4 +167,115 @@ export function formatDiaperDetails(
           ? "Mixed"
           : "Dry";
   return typeLabel;
+}
+
+/**
+ * Format solids details for display
+ */
+export function formatSolidsDetails(
+  lastSolids: {
+    notes?: string | null;
+  } | null
+): string {
+  if (!lastSolids) return "";
+  return lastSolids.notes ?? "";
+}
+
+/**
+ * Format pumping details for display
+ */
+export function formatPumpingDetails(
+  lastPumping: {
+    startTime: Date;
+    endTime: Date | null;
+    amountMl: number | null;
+  } | null
+): string {
+  if (!lastPumping) return "";
+  const parts: string[] = [];
+  if (lastPumping.endTime) {
+    const duration = formatDurationPrecise(lastPumping.startTime, lastPumping.endTime);
+    parts.push(duration);
+  }
+  if (lastPumping.amountMl) {
+    parts.push(`${Math.round(lastPumping.amountMl / 29.574)}oz`);
+  }
+  return parts.join(" ");
+}
+
+/**
+ * Format medicine details for display
+ */
+export function formatMedicineDetails(
+  lastMedicine: {
+    medicine: {
+      name: string;
+    };
+    dosageGiven?: string | null;
+  } | null
+): string {
+  if (!lastMedicine) return "";
+  const name = lastMedicine.medicine.name;
+  if (lastMedicine.dosageGiven) {
+    return `${name} (${lastMedicine.dosageGiven})`;
+  }
+  return name;
+}
+
+/**
+ * Format growth details for display
+ */
+export function formatGrowthDetails(
+  lastGrowth: {
+    weightKg?: number | null;
+    heightCm?: number | null;
+    headCircumferenceCm?: number | null;
+  } | null
+): string {
+  if (!lastGrowth) return "";
+  const parts: string[] = [];
+  if (lastGrowth.weightKg) {
+    const lbs = lastGrowth.weightKg * 2.20462;
+    parts.push(`${lbs.toFixed(1)}lbs`);
+  }
+  if (lastGrowth.heightCm) {
+    const inches = lastGrowth.heightCm / 2.54;
+    parts.push(`${inches.toFixed(1)}in`);
+  }
+  return parts.join(" / ");
+}
+
+/**
+ * Format temperature details for display
+ */
+export function formatTemperatureDetails(
+  lastTemperature: {
+    temperatureCelsius: number;
+  } | null
+): string {
+  if (!lastTemperature) return "";
+  const fahrenheit = lastTemperature.temperatureCelsius * 9/5 + 32;
+  return `${fahrenheit.toFixed(1)}°F`;
+}
+
+/**
+ * Format activity details for display
+ */
+export function formatActivityDetails(
+  lastActivity: {
+    activityType: string;
+    startTime: Date;
+    endTime: Date | null;
+  } | null
+): string {
+  if (!lastActivity) return "";
+  const type = lastActivity.activityType
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  if (lastActivity.endTime) {
+    const duration = formatDurationPrecise(lastActivity.startTime, lastActivity.endTime);
+    return `${type} (${duration})`;
+  }
+  return type;
 }
