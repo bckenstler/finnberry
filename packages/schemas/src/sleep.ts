@@ -24,7 +24,7 @@ export type EndSleepInput = z.infer<typeof endSleepSchema>;
 export const logSleepSchema = z.object({
   childId: idSchema,
   startTime: z.coerce.date(),
-  endTime: z.coerce.date().optional(),
+  endTime: z.coerce.date(),
   sleepType: sleepTypeSchema.default("NAP"),
   quality: qualitySchema.optional(),
   notes: z.string().max(500).optional(),
