@@ -6,6 +6,7 @@ export * from "./diaper";
 export * from "./pumping";
 export * from "./growth";
 export * from "./activity";
+export * from "./temperature";
 export * from "./medicine";
 export * from "./user";
 export * from "./timeline";
