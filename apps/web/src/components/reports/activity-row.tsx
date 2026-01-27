@@ -26,7 +26,7 @@ import {
   mlToOz,
   ozToMl,
 } from "@finnberry/utils";
-import { Moon, Baby, Milk, Utensils, Droplets, ChevronRight, Trash2, Cloud, CloudRain } from "lucide-react";
+import { Moon, Baby, Milk, Utensils, Droplets, ChevronRight, Trash2, Cloud, CloudRain, Heart, Pill, Ruler, Thermometer, Star } from "lucide-react";
 
 interface SleepRecord {
   id: string;
@@ -60,10 +60,60 @@ interface DiaperRecord {
   notes?: string | null;
 }
 
+interface PumpingRecord {
+  id: string;
+  startTime: Date;
+  endTime: Date | null;
+  amountMl?: number | null;
+  notes?: string | null;
+}
+
+interface MedicineRecord {
+  id: string;
+  time: Date;
+  amount?: number | null;
+  unit?: string | null;
+  notes?: string | null;
+  medicine: {
+    id: string;
+    name: string;
+    defaultDosage?: string | null;
+  };
+}
+
+interface GrowthRecord {
+  id: string;
+  date: Date;
+  weightOz?: number | null;
+  heightIn?: number | null;
+  headCircumferenceCm?: number | null;
+  notes?: string | null;
+}
+
+interface TemperatureRecord {
+  id: string;
+  time: Date;
+  temperatureCelsius: number;
+  notes?: string | null;
+}
+
+interface ActivityRecordType {
+  id: string;
+  activityType: string;
+  startTime: Date;
+  endTime: Date | null;
+  notes?: string | null;
+}
+
 type Activity =
   | { type: "SLEEP"; record: SleepRecord; time: Date }
   | { type: "FEEDING"; record: FeedingRecord; time: Date }
-  | { type: "DIAPER"; record: DiaperRecord; time: Date };
+  | { type: "DIAPER"; record: DiaperRecord; time: Date }
+  | { type: "PUMPING"; record: PumpingRecord; time: Date }
+  | { type: "MEDICINE"; record: MedicineRecord; time: Date }
+  | { type: "GROWTH"; record: GrowthRecord; time: Date }
+  | { type: "TEMPERATURE"; record: TemperatureRecord; time: Date }
+  | { type: "ACTIVITY"; record: ActivityRecordType; time: Date };
 
 interface ActivityRowProps {
   activity: Activity;
@@ -79,6 +129,11 @@ const iconMap = {
   bottle: Milk,
   solids: Utensils,
   diaper: Droplets,
+  pumping: Heart,
+  medicine: Pill,
+  growth: Ruler,
+  temperature: Thermometer,
+  activity: Star,
 };
 
 type DiaperAmount = "SMALL" | "MEDIUM" | "LARGE";
@@ -217,6 +272,61 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     },
   });
 
+  const deletePumping = trpc.pumping.delete.useMutation({
+    onSuccess: () => {
+      utils.pumping.list.invalidate();
+      utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Pumping record deleted" });
+      setDeleteConfirmOpen(false);
+      closeEditDialog();
+    },
+  });
+
+  const deleteMedicine = trpc.medicine.deleteRecord.useMutation({
+    onSuccess: () => {
+      utils.medicine.list.invalidate();
+      utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Medicine record deleted" });
+      setDeleteConfirmOpen(false);
+      closeEditDialog();
+    },
+  });
+
+  const deleteGrowth = trpc.growth.delete.useMutation({
+    onSuccess: () => {
+      utils.growth.list.invalidate();
+      utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Growth record deleted" });
+      setDeleteConfirmOpen(false);
+      closeEditDialog();
+    },
+  });
+
+  const deleteTemperature = trpc.temperature.delete.useMutation({
+    onSuccess: () => {
+      utils.temperature.list.invalidate();
+      utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Temperature record deleted" });
+      setDeleteConfirmOpen(false);
+      closeEditDialog();
+    },
+  });
+
+  const deleteActivity = trpc.activity.delete.useMutation({
+    onSuccess: () => {
+      utils.activity.list.invalidate();
+      utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Activity record deleted" });
+      setDeleteConfirmOpen(false);
+      closeEditDialog();
+    },
+  });
+
   // Update mutations
   const updateSleep = trpc.sleep.update.useMutation({
     onSuccess: () => {
@@ -258,6 +368,21 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
         break;
       case "DIAPER":
         deleteDiaper.mutate({ id: activity.record.id });
+        break;
+      case "PUMPING":
+        deletePumping.mutate({ id: activity.record.id });
+        break;
+      case "MEDICINE":
+        deleteMedicine.mutate({ id: activity.record.id });
+        break;
+      case "GROWTH":
+        deleteGrowth.mutate({ id: activity.record.id });
+        break;
+      case "TEMPERATURE":
+        deleteTemperature.mutate({ id: activity.record.id });
+        break;
+      case "ACTIVITY":
+        deleteActivity.mutate({ id: activity.record.id });
         break;
     }
   };
@@ -312,7 +437,9 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
   };
 
   const isDeleting =
-    deleteSleep.isPending || deleteFeeding.isPending || deleteDiaper.isPending;
+    deleteSleep.isPending || deleteFeeding.isPending || deleteDiaper.isPending ||
+    deletePumping.isPending || deleteMedicine.isPending || deleteGrowth.isPending ||
+    deleteTemperature.isPending || deleteActivity.isPending;
   const isSaving =
     updateSleep.isPending || updateFeeding.isPending || updateDiaper.isPending;
 
@@ -393,6 +520,71 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       }
       timeDisplay = formatTimeShort(r.time);
       details = r.amount ? (r.amount === "SMALL" ? "S" : r.amount === "MEDIUM" ? "M" : "L") : "";
+      break;
+    }
+    case "PUMPING": {
+      category = "pumping";
+      const r = activity.record;
+      const duration = r.endTime ? formatDurationPrecise(r.startTime, r.endTime) : "";
+      const amount = r.amountMl ? `${Math.round(r.amountMl / 29.574)}oz` : "";
+      description = duration
+        ? `Pumped ${amount ? amount + " in " : ""}${duration}`
+        : "Pumping in progress";
+      timeDisplay = r.endTime
+        ? formatTimeRange(r.startTime, r.endTime)
+        : `${formatTimeShort(r.startTime)} - ongoing`;
+      details = amount || "";
+      break;
+    }
+    case "MEDICINE": {
+      category = "medicine";
+      const r = activity.record;
+      const amountStr = r.amount && r.unit ? `${r.amount} ${r.unit}` : "";
+      description = `${childName} took ${r.medicine.name}${amountStr ? ` (${amountStr})` : ""}`;
+      timeDisplay = formatTimeShort(r.time);
+      details = "";
+      break;
+    }
+    case "GROWTH": {
+      category = "growth";
+      const r = activity.record;
+      const parts: string[] = [];
+      if (r.weightOz) {
+        const lbs = Math.floor(r.weightOz / 16);
+        const oz = r.weightOz % 16;
+        parts.push(`${lbs}lb ${oz}oz`);
+      }
+      if (r.heightIn) {
+        const ft = Math.floor(r.heightIn / 12);
+        const inches = r.heightIn % 12;
+        parts.push(`${ft}ft ${inches}in`);
+      }
+      description = `${childName} growth: ${parts.join(", ") || "recorded"}`;
+      timeDisplay = formatTimeShort(r.date);
+      details = "";
+      break;
+    }
+    case "TEMPERATURE": {
+      category = "temperature";
+      const r = activity.record;
+      const tempF = (r.temperatureCelsius * 9/5) + 32;
+      description = `${childName}'s temperature: ${tempF.toFixed(1)}°F`;
+      timeDisplay = formatTimeShort(r.time);
+      details = tempF >= 100.4 ? "Fever" : "";
+      break;
+    }
+    case "ACTIVITY": {
+      category = "activity";
+      const r = activity.record;
+      const duration = r.endTime ? formatDurationPrecise(r.startTime, r.endTime) : "";
+      const activityName = r.activityType.replace(/_/g, " ").toLowerCase();
+      description = duration
+        ? `${childName} did ${activityName} for ${duration}`
+        : `${childName} is doing ${activityName}`;
+      timeDisplay = r.endTime
+        ? formatTimeRange(r.startTime, r.endTime)
+        : `${formatTimeShort(r.startTime)} - ongoing`;
+      details = "";
       break;
     }
   }
@@ -642,6 +834,24 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
                 </button>
               ))}
             </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Read-only view for pumping, medicine, growth, temperature, activity
+    // These types support delete but not edit (yet)
+    if (activity.type === "PUMPING" || activity.type === "MEDICINE" ||
+        activity.type === "GROWTH" || activity.type === "TEMPERATURE" ||
+        activity.type === "ACTIVITY") {
+      return (
+        <div className="flex items-center gap-3">
+          <div className={iconClasses}>
+            <Icon className="h-6 w-6" />
+          </div>
+          <div>
+            <p className="font-medium">{description}</p>
+            <p className="text-sm text-muted-foreground">{timeDisplay}</p>
           </div>
         </div>
       );
