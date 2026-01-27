@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HomeView } from "@/components/dashboard/home-view";
 import { ReportsView } from "@/components/dashboard/reports-view";
+import { ChildSelector } from "@/components/dashboard/child-selector";
 import Link from "next/link";
-import { ArrowLeft, Settings, Home, BarChart3 } from "lucide-react";
+import { Settings, Home, BarChart3 } from "lucide-react";
 
 export default function ChildDashboardPage({
   params,
@@ -16,7 +17,15 @@ export default function ChildDashboardPage({
 }) {
   const { childId } = use(params);
   const [activeTab, setActiveTab] = useState("home");
-  const { data: child, isLoading } = trpc.child.get.useQuery({ id: childId });
+  const { data: child, isLoading: childLoading } = trpc.child.get.useQuery({ id: childId });
+
+  // Get all children in household for the selector
+  const { data: allChildren, isLoading: childrenLoading } = trpc.child.list.useQuery(
+    { householdId: child?.household?.id ?? "" },
+    { enabled: !!child?.household?.id }
+  );
+
+  const isLoading = childLoading || (child?.household?.id && childrenLoading);
 
   if (isLoading) {
     return (
@@ -41,19 +50,11 @@ export default function ChildDashboardPage({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button asChild variant="ghost" size="icon">
-            <Link href="/dashboard">
-              <ArrowLeft className="h-4 w-4" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">{child.name}</h1>
-            <p className="text-sm text-muted-foreground">
-              Born {new Date(child.birthDate).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
+        <ChildSelector
+          currentChild={child}
+          allChildren={allChildren ?? [child]}
+          householdId={child.household?.id ?? ""}
+        />
         <Button asChild variant="outline" size="sm">
           <Link href={`/dashboard/${childId}/settings`}>
             <Settings className="mr-2 h-4 w-4" />

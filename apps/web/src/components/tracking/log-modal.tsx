@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { trpc } from "@/lib/trpc/provider";
 import { useTimer } from "@/hooks/use-timer";
+import { useTimerStore } from "@/stores/timer-store";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -15,7 +16,9 @@ import { TimeRow } from "@/components/ui/time-row";
 import { SimpleToggleGroup } from "@/components/ui/simple-toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { mlToOz, ozToMl } from "@finnberry/utils";
-import { Play, Droplets, Cloud, CloudRain } from "lucide-react";
+import { Play, Square, Droplets, Cloud, CloudRain } from "lucide-react";
+import { TimerDisplay } from "@/components/tracking/timer-display";
+import { BreastSideButton } from "@/components/tracking/breast-side-button";
 
 type LogType = "sleep" | "breast" | "bottle" | "diaper";
 
@@ -51,17 +54,37 @@ function SleepModal({ childId, onClose }: { childId: string; onClose: () => void
   const { toast } = useToast();
   const utils = trpc.useUtils();
   const sleepTimer = useTimer(childId, "sleep");
+  const stopTimer = useTimerStore((state) => state.stopTimer);
 
   const [sleepType, setSleepType] = useState<"NAP" | "NIGHT">("NAP");
   const [startTime, setStartTime] = useState<Date | null>(new Date());
   const [endTime, setEndTime] = useState<Date | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Sync sleepType with running timer's metadata
+  useEffect(() => {
+    if (sleepTimer.isRunning && sleepTimer.timer?.metadata?.sleepType) {
+      setSleepType(sleepTimer.timer.metadata.sleepType);
+    }
+  }, [sleepTimer.isRunning, sleepTimer.timer?.metadata?.sleepType]);
 
   const startSleep = trpc.sleep.start.useMutation({
     onSuccess: (result) => {
       utils.sleep.getActive.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
       sleepTimer.start({ sleepType });
       sleepTimer.update({ recordId: result.id });
       toast({ title: "Sleep timer started" });
+      // Don't close - stay in modal to show running timer
+    },
+  });
+
+  const endSleep = trpc.sleep.end.useMutation({
+    onSuccess: () => {
+      utils.sleep.list.invalidate();
+      utils.sleep.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Sleep recorded" });
       onClose();
     },
   });
@@ -70,67 +93,147 @@ function SleepModal({ childId, onClose }: { childId: string; onClose: () => void
     onSuccess: () => {
       utils.sleep.list.invalidate();
       utils.sleep.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Sleep recorded" });
       onClose();
     },
   });
 
-  const handleAction = () => {
+  const handleStart = () => {
+    if (startTime) {
+      startSleep.mutate({ childId, sleepType, startTime });
+    }
+  };
+
+  const handleStop = async () => {
+    if (sleepTimer.timer?.recordId) {
+      stopTimer(sleepTimer.timer.id);
+      await endSleep.mutateAsync({ id: sleepTimer.timer.recordId });
+    }
+  };
+
+  const handleManualSave = () => {
     if (endTime && startTime) {
-      // Log completed sleep
       logSleep.mutate({
         childId,
         sleepType,
         startTime,
         endTime,
       });
-    } else if (startTime) {
-      // Start timer
-      startSleep.mutate({ childId, sleepType, startTime });
     }
   };
 
-  const isLoading = startSleep.isPending || logSleep.isPending;
-  const hasEndTime = !!endTime;
+  const isLoading = startSleep.isPending || logSleep.isPending || endSleep.isPending;
 
+  // Timer is running - show running state
+  if (sleepTimer.isRunning && !showManualEntry) {
+    const runningType = sleepTimer.timer?.metadata?.sleepType === "NIGHT" ? "Night Sleep" : "Nap";
+
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Sleep in Progress</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center py-8 gap-4">
+          <span className="text-sm font-medium text-primary bg-primary/10 px-3 py-1 rounded-full">
+            {runningType}
+          </span>
+          <TimerDisplay elapsedMs={sleepTimer.elapsedMs} size="large" />
+        </div>
+
+        <div className="p-6 pt-0 flex flex-col gap-3">
+          <Button
+            size="lg"
+            variant="destructive"
+            className="w-full h-14 text-lg"
+            onClick={handleStop}
+            disabled={isLoading}
+          >
+            <Square className="h-5 w-5 mr-2" />
+            Stop
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // Manual entry mode
+  if (showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Log Sleep</DialogTitle>
+        </DialogHeader>
+
+        <SimpleToggleGroup
+          options={[
+            { value: "NAP", label: "Nap" },
+            { value: "NIGHT", label: "Night" },
+          ]}
+          value={sleepType}
+          onChange={setSleepType}
+        />
+
+        <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+        <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+
+        <div className="p-6 pt-4 flex flex-col gap-3">
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleManualSave}
+            disabled={isLoading || !startTime || !endTime}
+          >
+            Save
+          </Button>
+          <button
+            onClick={() => setShowManualEntry(false)}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Start Timer Instead
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // Default: Start timer UI
   return (
     <>
       <DialogHeader className="p-6 pb-0">
         <DialogTitle className="text-center">Add Sleep</DialogTitle>
       </DialogHeader>
 
-      <SimpleToggleGroup
-        options={[
-          { value: "NAP", label: "Nap" },
-          { value: "NIGHT", label: "Night" },
-        ]}
-        value={sleepType}
-        onChange={setSleepType}
-      />
+      <div className="flex flex-col items-center py-6 gap-6">
+        <TimerDisplay elapsedMs={0} />
 
-      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
-      <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+        <SimpleToggleGroup
+          options={[
+            { value: "NAP", label: "Nap" },
+            { value: "NIGHT", label: "Night" },
+          ]}
+          value={sleepType}
+          onChange={setSleepType}
+        />
 
-      <div className="p-6 pt-8 flex justify-center">
-        {hasEndTime ? (
-          <Button
-            size="lg"
-            className="w-full h-14 text-lg"
-            onClick={handleAction}
-            disabled={isLoading || !startTime}
-          >
-            Save
-          </Button>
-        ) : (
-          <button
-            onClick={handleAction}
-            disabled={isLoading || !startTime}
-            className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
-          >
-            <Play className="h-8 w-8 text-primary" />
-            <span className="text-primary font-semibold">START</span>
-          </button>
-        )}
+        <button
+          onClick={handleStart}
+          disabled={isLoading}
+          className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
+        >
+          <Play className="h-8 w-8 text-primary" />
+          <span className="text-primary font-semibold">START</span>
+        </button>
+      </div>
+
+      <div className="p-6 pt-0 flex justify-center">
+        <button
+          onClick={() => setShowManualEntry(true)}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Manual Entry
+        </button>
       </div>
     </>
   );
@@ -140,17 +243,46 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
   const { toast } = useToast();
   const utils = trpc.useUtils();
   const feedingTimer = useTimer(childId, "feeding");
+  const stopTimer = useTimerStore((state) => state.stopTimer);
 
-  const [side, setSide] = useState<"LEFT" | "RIGHT" | "BOTH">("LEFT");
+  const [side, setSide] = useState<"LEFT" | "RIGHT">("LEFT");
   const [startTime, setStartTime] = useState<Date | null>(new Date());
   const [endTime, setEndTime] = useState<Date | null>(null);
+  const [showManualEntry, setShowManualEntry] = useState(false);
+
+  // Query for last side info
+  const { data: summary } = trpc.feeding.summary.useQuery({
+    childId,
+    period: "today",
+  });
+
+  // Determine which side was used last
+  const lastSide: "LEFT" | "RIGHT" | null = (() => {
+    if (!summary?.lastLeftSide && !summary?.lastRightSide) return null;
+    if (!summary.lastLeftSide) return "RIGHT";
+    if (!summary.lastRightSide) return "LEFT";
+    return new Date(summary.lastLeftSide) > new Date(summary.lastRightSide)
+      ? "LEFT"
+      : "RIGHT";
+  })();
 
   const startBreastfeeding = trpc.feeding.startBreastfeeding.useMutation({
     onSuccess: (result) => {
       utils.feeding.getActive.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
       feedingTimer.start({ feedingSide: side });
       feedingTimer.update({ recordId: result.id });
       toast({ title: "Feeding timer started" });
+      // Don't close - stay in modal to show running timer
+    },
+  });
+
+  const endBreastfeeding = trpc.feeding.endBreastfeeding.useMutation({
+    onSuccess: () => {
+      utils.feeding.list.invalidate();
+      utils.feeding.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Feeding recorded" });
       onClose();
     },
   });
@@ -159,12 +291,27 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
     onSuccess: () => {
       utils.feeding.list.invalidate();
       utils.feeding.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Breastfeeding recorded" });
       onClose();
     },
   });
 
-  const handleAction = () => {
+  const handleSideClick = (clickedSide: "LEFT" | "RIGHT") => {
+    if (feedingTimer.isRunning) return;
+    setSide(clickedSide);
+    // Start the timer immediately when clicking a side
+    startBreastfeeding.mutate({ childId, side: clickedSide, startTime: new Date() });
+  };
+
+  const handleStop = async () => {
+    if (feedingTimer.timer?.recordId) {
+      stopTimer(feedingTimer.timer.id);
+      await endBreastfeeding.mutateAsync({ id: feedingTimer.timer.recordId });
+    }
+  };
+
+  const handleManualSave = () => {
     if (endTime && startTime) {
       logBreastfeeding.mutate({
         childId,
@@ -172,53 +319,134 @@ function BreastModal({ childId, onClose }: { childId: string; onClose: () => voi
         startTime,
         endTime,
       });
-    } else if (startTime) {
-      startBreastfeeding.mutate({ childId, side, startTime });
     }
   };
 
-  const isLoading = startBreastfeeding.isPending || logBreastfeeding.isPending;
-  const hasEndTime = !!endTime;
+  const isLoading = startBreastfeeding.isPending || logBreastfeeding.isPending || endBreastfeeding.isPending;
+  const activeSide = feedingTimer.timer?.metadata?.feedingSide as "LEFT" | "RIGHT" | undefined;
 
+  // Timer is running - show running state
+  if (feedingTimer.isRunning && !showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Breastfeeding</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center py-6 gap-6">
+          <TimerDisplay elapsedMs={feedingTimer.elapsedMs} size="large" />
+
+          <div className="flex gap-6">
+            <BreastSideButton
+              side="LEFT"
+              isActive={activeSide === "LEFT"}
+              isLastSide={false}
+              elapsedMs={activeSide === "LEFT" ? feedingTimer.elapsedMs : 0}
+              onClick={() => {}}
+              disabled={true}
+            />
+            <BreastSideButton
+              side="RIGHT"
+              isActive={activeSide === "RIGHT"}
+              isLastSide={false}
+              elapsedMs={activeSide === "RIGHT" ? feedingTimer.elapsedMs : 0}
+              onClick={() => {}}
+              disabled={true}
+            />
+          </div>
+        </div>
+
+        <div className="p-6 pt-0 flex flex-col gap-3">
+          <Button
+            size="lg"
+            variant="destructive"
+            className="w-full h-14 text-lg"
+            onClick={handleStop}
+            disabled={isLoading}
+          >
+            <Square className="h-5 w-5 mr-2" />
+            Stop
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // Manual entry mode
+  if (showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Log Breastfeeding</DialogTitle>
+        </DialogHeader>
+
+        <SimpleToggleGroup
+          options={[
+            { value: "LEFT", label: "Left" },
+            { value: "RIGHT", label: "Right" },
+          ]}
+          value={side}
+          onChange={(val) => setSide(val as "LEFT" | "RIGHT")}
+        />
+
+        <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+        <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+
+        <div className="p-6 pt-4 flex flex-col gap-3">
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleManualSave}
+            disabled={isLoading || !startTime || !endTime}
+          >
+            Save
+          </Button>
+          <button
+            onClick={() => setShowManualEntry(false)}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Start Timer Instead
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // Default: Huckleberry-style start UI with large side buttons
   return (
     <>
       <DialogHeader className="p-6 pb-0">
         <DialogTitle className="text-center">Add Breastfeeding</DialogTitle>
       </DialogHeader>
 
-      <SimpleToggleGroup
-        options={[
-          { value: "LEFT", label: "Left" },
-          { value: "RIGHT", label: "Right" },
-          { value: "BOTH", label: "Both" },
-        ]}
-        value={side}
-        onChange={setSide}
-      />
+      <div className="flex flex-col items-center py-6 gap-6">
+        <TimerDisplay elapsedMs={0} />
 
-      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
-      <TimeRow label="End Time" value={endTime} onChange={setEndTime} placeholder="Set time" />
+        <div className="flex gap-6">
+          <BreastSideButton
+            side="LEFT"
+            isActive={false}
+            isLastSide={lastSide === "LEFT"}
+            onClick={() => handleSideClick("LEFT")}
+            disabled={isLoading}
+          />
+          <BreastSideButton
+            side="RIGHT"
+            isActive={false}
+            isLastSide={lastSide === "RIGHT"}
+            onClick={() => handleSideClick("RIGHT")}
+            disabled={isLoading}
+          />
+        </div>
+      </div>
 
-      <div className="p-6 pt-8 flex justify-center">
-        {hasEndTime ? (
-          <Button
-            size="lg"
-            className="w-full h-14 text-lg"
-            onClick={handleAction}
-            disabled={isLoading || !startTime}
-          >
-            Save
-          </Button>
-        ) : (
-          <button
-            onClick={handleAction}
-            disabled={isLoading || !startTime}
-            className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
-          >
-            <Play className="h-8 w-8 text-primary" />
-            <span className="text-primary font-semibold">START</span>
-          </button>
-        )}
+      <div className="p-6 pt-0 flex justify-center">
+        <button
+          onClick={() => setShowManualEntry(true)}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Manual Entry
+        </button>
       </div>
     </>
   );
