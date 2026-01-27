@@ -106,3 +106,12 @@ export function celsiusToFahrenheit(celsius: number): number {
 export function fahrenheitToCelsius(fahrenheit: number): number {
   return Math.round(((fahrenheit - 32) * 5 / 9) * 10) / 10;
 }
+
+export function formatTemperature(celsius: number): string {
+  return `${celsius.toFixed(1)}°C`;
+}
+
+export function formatTemperatureImperial(celsius: number): string {
+  const fahrenheit = celsiusToFahrenheit(celsius);
+  return `${fahrenheit.toFixed(1)}°F`;
+}

@@ -1,5 +1,12 @@
 import type { PrismaClient } from "@finnberry/db";
-import { getDateRange, calculateDurationMinutes, formatDuration } from "@finnberry/utils";
+import { getDateRange, formatDuration } from "@finnberry/utils";
+import {
+  buildStartResponse,
+  buildEndResponse,
+  buildLogResponse,
+  calculateTotalMinutes,
+  mapRecentRecords,
+} from "./helpers.js";
 
 export async function handleSleepTools(
   name: string,
@@ -29,12 +36,12 @@ export async function handleSleepTools(
         },
       });
 
-      return {
-        success: true,
-        sleepId: sleep.id,
-        message: `Started ${sleepType.toLowerCase()} timer for child`,
-        startTime: sleep.startTime.toISOString(),
-      };
+      return buildStartResponse(
+        "sleepId",
+        sleep.id,
+        `Started ${sleepType.toLowerCase()} timer for child`,
+        sleep.startTime
+      );
     }
 
     case "end-sleep": {
@@ -53,16 +60,10 @@ export async function handleSleepTools(
         },
       });
 
-      const duration = calculateDurationMinutes(sleep.startTime, sleep.endTime!);
-
-      return {
-        success: true,
-        sleepId: sleep.id,
-        duration: formatDuration(duration),
-        durationMinutes: duration,
+      return buildEndResponse("sleepId", sleep.id, sleep.startTime, sleep.endTime!, {
         sleepType: sleep.sleepType,
         quality: sleep.quality,
-      };
+      });
     }
 
     case "log-sleep": {
@@ -84,14 +85,9 @@ export async function handleSleepTools(
         },
       });
 
-      const duration = calculateDurationMinutes(sleep.startTime, sleep.endTime!);
-
-      return {
-        success: true,
-        sleepId: sleep.id,
-        duration: formatDuration(duration),
+      return buildLogResponse("sleepId", sleep.id, sleep.startTime, sleep.endTime, {
         sleepType: sleep.sleepType,
-      };
+      });
     }
 
     case "get-sleep-summary": {
@@ -111,23 +107,11 @@ export async function handleSleepTools(
         orderBy: { startTime: "desc" },
       });
 
-      const totalMinutes = records.reduce((sum, r) => {
-        if (!r.endTime) return sum;
-        return sum + calculateDurationMinutes(r.startTime, r.endTime);
-      }, 0);
-
+      const totalMinutes = calculateTotalMinutes(records);
       const napRecords = records.filter((r) => r.sleepType === "NAP");
       const nightRecords = records.filter((r) => r.sleepType === "NIGHT");
-
-      const napMinutes = napRecords.reduce((sum, r) => {
-        if (!r.endTime) return sum;
-        return sum + calculateDurationMinutes(r.startTime, r.endTime);
-      }, 0);
-
-      const nightMinutes = nightRecords.reduce((sum, r) => {
-        if (!r.endTime) return sum;
-        return sum + calculateDurationMinutes(r.startTime, r.endTime);
-      }, 0);
+      const napMinutes = calculateTotalMinutes(napRecords);
+      const nightMinutes = calculateTotalMinutes(nightRecords);
 
       return {
         period,
@@ -144,14 +128,8 @@ export async function handleSleepTools(
           totalTime: formatDuration(nightMinutes),
           totalMinutes: nightMinutes,
         },
-        recentSessions: records.slice(0, 5).map((r) => ({
-          id: r.id,
+        recentSessions: mapRecentRecords(records, 5, (r) => ({
           type: r.sleepType,
-          startTime: r.startTime.toISOString(),
-          endTime: r.endTime?.toISOString(),
-          duration: r.endTime
-            ? formatDuration(calculateDurationMinutes(r.startTime, r.endTime))
-            : "ongoing",
           quality: r.quality,
         })),
       };
