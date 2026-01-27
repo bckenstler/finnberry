@@ -21,11 +21,13 @@ import { TimeRow } from "@/components/ui/time-row";
 import { SimpleToggleGroup } from "@/components/ui/simple-toggle-group";
 import { useToast } from "@/hooks/use-toast";
 import { mlToOz, ozToMl } from "@finnberry/utils";
-import { Play, Square, Droplets, Cloud, CloudRain } from "lucide-react";
+import { Play, Square, Droplets, Cloud, CloudRain, Plus, Check, X } from "lucide-react";
 import { TimerDisplay } from "@/components/tracking/timer-display";
 import { BreastSideButton } from "@/components/tracking/breast-side-button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
-type LogType = "sleep" | "breast" | "bottle" | "diaper";
+type LogType = "sleep" | "breast" | "bottle" | "diaper" | "solids" | "pumping" | "medicine";
 
 interface LogModalProps {
   childId: string;
@@ -49,6 +51,15 @@ export function LogModal({ childId, type, open, onOpenChange }: LogModalProps) {
         )}
         {type === "diaper" && (
           <DiaperModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "solids" && (
+          <SolidsModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "pumping" && (
+          <PumpingModal childId={childId} onClose={() => onOpenChange(false)} />
+        )}
+        {type === "medicine" && (
+          <MedicineModal childId={childId} onClose={() => onOpenChange(false)} />
         )}
       </DialogContent>
     </Dialog>
@@ -730,6 +741,687 @@ function DiaperModal({ childId, onClose }: { childId: string; onClose: () => voi
           className="w-full h-14 text-lg"
           onClick={handleSave}
           disabled={logDiaper.isPending}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+// Popular foods list for solids modal
+const POPULAR_FOODS = [
+  "avocado", "banana", "apple", "rice cereal",
+  "sweet potato", "oatmeal", "spinach", "chicken",
+  "peas", "pear", "yogurt", "carrot",
+  "broccoli", "prune", "green bean", "mango",
+];
+
+function SolidsModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [selectedFoods, setSelectedFoods] = useState<string[]>([]);
+  const [customFood, setCustomFood] = useState("");
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [notes, setNotes] = useState("");
+
+  const logSolids = trpc.feeding.logSolids.useMutation({
+    onSuccess: () => {
+      utils.feeding.list.invalidate();
+      utils.feeding.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Solids logged" });
+      onClose();
+    },
+  });
+
+  const handleFoodToggle = (food: string) => {
+    setSelectedFoods((prev) =>
+      prev.includes(food)
+        ? prev.filter((f) => f !== food)
+        : [...prev, food]
+    );
+  };
+
+  const handleAddCustomFood = () => {
+    const trimmed = customFood.trim();
+    if (trimmed && !selectedFoods.includes(trimmed)) {
+      setSelectedFoods((prev) => [...prev, trimmed]);
+      setCustomFood("");
+    }
+  };
+
+  const handleSave = () => {
+    if (selectedFoods.length === 0 || !startTime) return;
+    logSolids.mutate({
+      childId,
+      startTime,
+      foodItems: selectedFoods,
+      notes: notes || undefined,
+    });
+  };
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Solids</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+
+      <div className="px-6 py-4 border-b border-border">
+        <p className="text-sm text-muted-foreground mb-3">Add food <span className="text-xs">(optional custom)</span></p>
+        <div className="flex gap-2">
+          <Input
+            placeholder="Enter foods or add from below"
+            value={customFood}
+            onChange={(e) => setCustomFood(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleAddCustomFood()}
+            className="flex-1"
+          />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleAddCustomFood}
+            disabled={!customFood.trim()}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+
+      {/* Selected foods */}
+      {selectedFoods.length > 0 && (
+        <div className="px-6 py-3 border-b border-border">
+          <p className="text-sm text-muted-foreground mb-2">Selected foods</p>
+          <div className="flex flex-wrap gap-2">
+            {selectedFoods.map((food) => (
+              <button
+                key={food}
+                onClick={() => handleFoodToggle(food)}
+                className="flex items-center gap-1 px-3 py-1 bg-primary/20 text-primary rounded-full text-sm"
+              >
+                {food}
+                <X className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Popular foods grid */}
+      <div className="px-6 py-4 max-h-64 overflow-y-auto">
+        <p className="text-sm text-muted-foreground mb-3">Most popular foods</p>
+        <div className="grid grid-cols-4 gap-3">
+          {POPULAR_FOODS.map((food) => {
+            const isSelected = selectedFoods.includes(food);
+            return (
+              <button
+                key={food}
+                onClick={() => handleFoodToggle(food)}
+                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                  isSelected
+                    ? "bg-primary/20 ring-2 ring-primary"
+                    : "bg-muted hover:bg-muted/80"
+                }`}
+              >
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${
+                  isSelected ? "bg-primary/30" : "bg-background"
+                }`}>
+                  {isSelected && <Check className="h-5 w-5 text-primary" />}
+                </div>
+                <span className="text-xs text-center leading-tight">{food}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Notes */}
+      <div className="px-6 py-3 border-t border-border">
+        <Textarea
+          placeholder="Add notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="min-h-[60px]"
+        />
+      </div>
+
+      <div className="p-6 pt-0 flex items-center gap-4">
+        <span className="text-sm text-muted-foreground">
+          Selected <span className="text-primary font-medium">{selectedFoods.length}</span>
+        </span>
+        <Button
+          size="lg"
+          className="flex-1 h-14 text-lg"
+          onClick={handleSave}
+          disabled={logSolids.isPending || selectedFoods.length === 0}
+        >
+          Save
+        </Button>
+      </div>
+    </>
+  );
+}
+
+function PumpingModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+  const pumpingTimer = useTimer(childId, "pumping");
+  const stopTimer = useTimerStore((state) => state.stopTimer);
+
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [showManualEntry, setShowManualEntry] = useState(false);
+  const [amountMode, setAmountMode] = useState<"total" | "left/right">("total");
+  const [unit, setUnit] = useState<"oz" | "ml">("oz");
+  const [leftAmountOz, setLeftAmountOz] = useState(0.25);
+  const [rightAmountOz, setRightAmountOz] = useState(0.25);
+  const [notes, setNotes] = useState("");
+
+  const startPumping = trpc.pumping.start.useMutation({
+    onSuccess: (result) => {
+      utils.pumping.list.invalidate();
+      utils.timeline.getLastActivities.invalidate({ childId });
+      pumpingTimer.start({});
+      pumpingTimer.update({ recordId: result.id });
+      toast({ title: "Pumping timer started" });
+    },
+  });
+
+  const endPumping = trpc.pumping.end.useMutation({
+    onSuccess: () => {
+      utils.pumping.list.invalidate();
+      utils.pumping.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Pumping recorded" });
+      onClose();
+    },
+  });
+
+  const logPumping = trpc.pumping.log.useMutation({
+    onSuccess: () => {
+      utils.pumping.list.invalidate();
+      utils.pumping.summary.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Pumping recorded" });
+      onClose();
+    },
+  });
+
+  const handleStart = () => {
+    startPumping.mutate({ childId, startTime: startTime ?? undefined });
+  };
+
+  const handleStop = async () => {
+    if (pumpingTimer.timer?.recordId) {
+      const totalMl = amountMode === "total"
+        ? ozToMl(leftAmountOz + rightAmountOz)
+        : ozToMl(leftAmountOz) + ozToMl(rightAmountOz);
+
+      stopTimer(pumpingTimer.timer.id);
+      await endPumping.mutateAsync({
+        id: pumpingTimer.timer.recordId,
+        amountMl: Math.round(totalMl),
+        notes: notes || undefined,
+      });
+    }
+  };
+
+  const handleManualSave = () => {
+    if (!startTime) return;
+    const totalMl = amountMode === "total"
+      ? ozToMl(leftAmountOz + rightAmountOz)
+      : ozToMl(leftAmountOz) + ozToMl(rightAmountOz);
+
+    logPumping.mutate({
+      childId,
+      startTime,
+      amountMl: Math.round(totalMl),
+      notes: notes || undefined,
+    });
+  };
+
+  const isLoading = startPumping.isPending || logPumping.isPending || endPumping.isPending;
+
+  // Timer is running - show amount entry
+  if (pumpingTimer.isRunning && !showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Pumping in Progress</DialogTitle>
+        </DialogHeader>
+
+        <div className="flex flex-col items-center py-6">
+          <TimerDisplay elapsedMs={pumpingTimer.elapsedMs} size="large" />
+        </div>
+
+        <PumpingAmountEntry
+          amountMode={amountMode}
+          setAmountMode={setAmountMode}
+          unit={unit}
+          setUnit={setUnit}
+          leftAmountOz={leftAmountOz}
+          setLeftAmountOz={setLeftAmountOz}
+          rightAmountOz={rightAmountOz}
+          setRightAmountOz={setRightAmountOz}
+        />
+
+        <div className="px-6 py-3 border-t border-border">
+          <Textarea
+            placeholder="Add note (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[60px]"
+          />
+        </div>
+
+        <div className="p-6 pt-0">
+          <Button
+            size="lg"
+            variant="destructive"
+            className="w-full h-14 text-lg"
+            onClick={handleStop}
+            disabled={isLoading}
+          >
+            <Square className="h-5 w-5 mr-2" />
+            Stop
+          </Button>
+        </div>
+      </>
+    );
+  }
+
+  // Manual entry mode
+  if (showManualEntry) {
+    return (
+      <>
+        <DialogHeader className="p-6 pb-0">
+          <DialogTitle className="text-center">Add Pumping</DialogTitle>
+        </DialogHeader>
+
+        <TimeRow label="Start Time" value={startTime} onChange={setStartTime} />
+
+        <PumpingAmountEntry
+          amountMode={amountMode}
+          setAmountMode={setAmountMode}
+          unit={unit}
+          setUnit={setUnit}
+          leftAmountOz={leftAmountOz}
+          setLeftAmountOz={setLeftAmountOz}
+          rightAmountOz={rightAmountOz}
+          setRightAmountOz={setRightAmountOz}
+        />
+
+        <div className="px-6 py-3 border-t border-border">
+          <Textarea
+            placeholder="Add note (optional)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="min-h-[60px]"
+          />
+        </div>
+
+        <div className="p-6 pt-0 flex flex-col gap-3">
+          <Button
+            size="lg"
+            className="w-full h-14 text-lg"
+            onClick={handleManualSave}
+            disabled={isLoading || !startTime}
+          >
+            Save
+          </Button>
+          <button
+            onClick={() => setShowManualEntry(false)}
+            className="text-sm text-primary hover:underline"
+          >
+            Switch to timer
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  // Default: Start timer UI
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Add Pumping</DialogTitle>
+      </DialogHeader>
+
+      <div className="flex flex-col items-center py-8 gap-6">
+        <TimerDisplay elapsedMs={0} />
+
+        <button
+          onClick={handleStart}
+          disabled={isLoading}
+          className="w-32 h-32 rounded-full bg-primary/20 border-2 border-dashed border-primary flex flex-col items-center justify-center gap-2 hover:bg-primary/30 transition-colors disabled:opacity-50"
+        >
+          <Play className="h-8 w-8 text-primary" />
+          <span className="text-primary font-semibold">START</span>
+        </button>
+      </div>
+
+      <div className="p-6 pt-0 flex justify-center">
+        <button
+          onClick={() => setShowManualEntry(true)}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Manual Entry
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Sub-component for pumping amount entry (used in timer running and manual modes)
+function PumpingAmountEntry({
+  amountMode,
+  setAmountMode,
+  unit,
+  setUnit,
+  leftAmountOz,
+  setLeftAmountOz,
+  rightAmountOz,
+  setRightAmountOz,
+}: {
+  amountMode: "total" | "left/right";
+  setAmountMode: (mode: "total" | "left/right") => void;
+  unit: "oz" | "ml";
+  setUnit: (unit: "oz" | "ml") => void;
+  leftAmountOz: number;
+  setLeftAmountOz: (val: number) => void;
+  rightAmountOz: number;
+  setRightAmountOz: (val: number) => void;
+}) {
+  const totalOz = leftAmountOz + rightAmountOz;
+  const maxSlider = unit === "oz" ? 8 : Math.round(ozToMl(8));
+
+  const displayValue = (oz: number) =>
+    unit === "oz" ? oz.toFixed(2) : Math.round(ozToMl(oz));
+
+  return (
+    <div className="px-6 py-4 border-t border-border space-y-4">
+      {/* Mode and unit toggles */}
+      <div className="flex items-center justify-between">
+        <div className="flex rounded overflow-hidden border border-border">
+          <button
+            onClick={() => setAmountMode("total")}
+            className={`px-3 py-1.5 text-sm ${amountMode === "total" ? "bg-muted" : ""}`}
+          >
+            total
+          </button>
+          <button
+            onClick={() => setAmountMode("left/right")}
+            className={`px-3 py-1.5 text-sm ${amountMode === "left/right" ? "bg-primary text-primary-foreground" : ""}`}
+          >
+            left/right
+          </button>
+        </div>
+        <div className="flex rounded overflow-hidden border border-border">
+          <button
+            onClick={() => setUnit("oz")}
+            className={`px-3 py-1.5 text-sm ${unit === "oz" ? "bg-primary text-primary-foreground" : ""}`}
+          >
+            oz
+          </button>
+          <button
+            onClick={() => setUnit("ml")}
+            className={`px-3 py-1.5 text-sm ${unit === "ml" ? "bg-primary text-primary-foreground" : ""}`}
+          >
+            ml
+          </button>
+        </div>
+      </div>
+
+      {amountMode === "total" ? (
+        <div>
+          <div className="flex justify-between mb-2">
+            <span className="text-muted-foreground">Total</span>
+            <span className="font-semibold">{displayValue(totalOz)} {unit}</span>
+          </div>
+          <Slider
+            value={[unit === "oz" ? totalOz : ozToMl(totalOz)]}
+            onValueChange={([val]) => {
+              const oz = unit === "oz" ? val : mlToOz(val);
+              setLeftAmountOz(oz / 2);
+              setRightAmountOz(oz / 2);
+            }}
+            max={maxSlider}
+            step={unit === "oz" ? 0.25 : 5}
+            className="w-full"
+          />
+          <div className="flex justify-between text-xs text-muted-foreground mt-1">
+            <span>0</span>
+            <span>{maxSlider}</span>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div>
+            <div className="flex justify-between mb-2">
+              <span className="text-muted-foreground">Left</span>
+              <span className="font-semibold">{displayValue(leftAmountOz)} {unit}</span>
+            </div>
+            <Slider
+              value={[unit === "oz" ? leftAmountOz : ozToMl(leftAmountOz)]}
+              onValueChange={([val]) => setLeftAmountOz(unit === "oz" ? val : mlToOz(val))}
+              max={maxSlider}
+              step={unit === "oz" ? 0.25 : 5}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>0</span>
+              <span>{maxSlider}</span>
+            </div>
+          </div>
+          <div>
+            <div className="flex justify-between mb-2">
+              <span className="text-muted-foreground">Right</span>
+              <span className="font-semibold">{displayValue(rightAmountOz)} {unit}</span>
+            </div>
+            <Slider
+              value={[unit === "oz" ? rightAmountOz : ozToMl(rightAmountOz)]}
+              onValueChange={([val]) => setRightAmountOz(unit === "oz" ? val : mlToOz(val))}
+              max={maxSlider}
+              step={unit === "oz" ? 0.25 : 5}
+              className="w-full"
+            />
+            <div className="flex justify-between text-xs text-muted-foreground mt-1">
+              <span>0</span>
+              <span>{maxSlider}</span>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+type MedicineUnit = "oz" | "ml" | "drops" | "tsp";
+
+function MedicineModal({ childId, onClose }: { childId: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const utils = trpc.useUtils();
+
+  const [startTime, setStartTime] = useState<Date | null>(new Date());
+  const [selectedMedicineId, setSelectedMedicineId] = useState<string | null>(null);
+  const [showCreateNew, setShowCreateNew] = useState(false);
+  const [newMedicineName, setNewMedicineName] = useState("");
+  const [newMedicineDosage, setNewMedicineDosage] = useState("");
+  const [unit, setUnit] = useState<MedicineUnit>("ml");
+  const [amount, setAmount] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // Fetch existing medicines for this child
+  const { data: medicines } = trpc.medicine.list.useQuery({
+    childId,
+    activeOnly: true,
+  });
+
+  const createMedicine = trpc.medicine.create.useMutation({
+    onSuccess: (result) => {
+      utils.medicine.list.invalidate({ childId });
+      setSelectedMedicineId(result.id);
+      setShowCreateNew(false);
+      toast({ title: "Medicine created" });
+    },
+  });
+
+  const logMedicineRecord = trpc.medicine.logRecord.useMutation({
+    onSuccess: () => {
+      utils.medicine.list.invalidate({ childId });
+      utils.timeline.getLastActivities.invalidate({ childId });
+      toast({ title: "Medicine logged" });
+      onClose();
+    },
+  });
+
+  const handleCreateMedicine = () => {
+    if (!newMedicineName.trim() || !newMedicineDosage.trim()) return;
+    createMedicine.mutate({
+      childId,
+      name: newMedicineName.trim(),
+      dosage: newMedicineDosage.trim(),
+    });
+  };
+
+  const handleSave = () => {
+    if (!selectedMedicineId || !startTime) return;
+
+    const dosageGiven = amount ? `${amount} ${unit}` : undefined;
+
+    logMedicineRecord.mutate({
+      medicineId: selectedMedicineId,
+      time: startTime,
+      dosageGiven,
+      notes: notes || undefined,
+    });
+  };
+
+  const selectedMedicine = medicines?.find((m: { id: string }) => m.id === selectedMedicineId);
+  const isLoading = createMedicine.isPending || logMedicineRecord.isPending;
+
+  return (
+    <>
+      <DialogHeader className="p-6 pb-0">
+        <DialogTitle className="text-center">Medicine</DialogTitle>
+      </DialogHeader>
+
+      <TimeRow label="Start time" value={startTime} onChange={setStartTime} />
+
+      {/* Medicine type selection */}
+      <div className="px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-muted-foreground">Type:</span>
+          {showCreateNew ? (
+            <button
+              onClick={() => setShowCreateNew(false)}
+              className="text-sm text-primary hover:underline"
+            >
+              Select existing
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowCreateNew(true)}
+              className="text-sm text-primary hover:underline"
+            >
+              + Add new
+            </button>
+          )}
+        </div>
+
+        {showCreateNew ? (
+          <div className="space-y-3">
+            <Input
+              placeholder="Medicine name"
+              value={newMedicineName}
+              onChange={(e) => setNewMedicineName(e.target.value)}
+            />
+            <Input
+              placeholder="Default dosage (e.g., 5ml)"
+              value={newMedicineDosage}
+              onChange={(e) => setNewMedicineDosage(e.target.value)}
+            />
+            <Button
+              onClick={handleCreateMedicine}
+              disabled={!newMedicineName.trim() || !newMedicineDosage.trim() || createMedicine.isPending}
+              className="w-full"
+            >
+              Create Medicine
+            </Button>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {medicines?.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No medicines. Add one first.</p>
+            ) : (
+              medicines?.map((medicine: { id: string; name: string }) => (
+                <button
+                  key={medicine.id}
+                  onClick={() => setSelectedMedicineId(medicine.id)}
+                  className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedMedicineId === medicine.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80"
+                  }`}
+                >
+                  {medicine.name}
+                </button>
+              ))
+            )}
+          </div>
+        )}
+
+        {selectedMedicine && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Default dosage: {selectedMedicine.dosage}
+          </p>
+        )}
+      </div>
+
+      {/* Amount with unit selection */}
+      <div className="px-6 py-4 border-b border-border">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-muted-foreground">Amount</span>
+          <div className="flex rounded overflow-hidden border border-border">
+            {(["oz", "ml", "drops", "tsp"] as MedicineUnit[]).map((u) => (
+              <button
+                key={u}
+                onClick={() => setUnit(u)}
+                className={`px-2 py-1 text-xs ${unit === u ? "bg-muted" : ""}`}
+              >
+                {u}
+              </button>
+            ))}
+          </div>
+        </div>
+        <Input
+          placeholder="Add amount (optional)"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          type="number"
+          step="0.1"
+          min="0"
+        />
+      </div>
+
+      {/* Notes */}
+      <div className="px-6 py-3">
+        <Textarea
+          placeholder="Add notes (optional)"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="min-h-[60px]"
+        />
+      </div>
+
+      <div className="p-6 pt-0">
+        <Button
+          size="lg"
+          className="w-full h-14 text-lg"
+          onClick={handleSave}
+          disabled={isLoading || !selectedMedicineId}
         >
           Save
         </Button>
