@@ -67,7 +67,8 @@ export function ListView({ childId }: ListViewProps) {
             <Card key={dateKey}>
               <CardContent className="p-4">
                 <h3 className="font-medium text-sm text-muted-foreground mb-3">
-                  {format(new Date(dateKey), "EEEE, MMMM d, yyyy")}
+                  {/* Add T12:00:00 to parse as local noon, avoiding UTC midnight timezone shift */}
+                  {format(new Date(dateKey + "T12:00:00"), "EEEE, MMMM d, yyyy")}
                 </h3>
                 <div className="space-y-2">
                   {groupedByDate[dateKey].map((activity) => (

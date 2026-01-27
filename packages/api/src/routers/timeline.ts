@@ -325,7 +325,16 @@ export const timelineRouter = createTRPCRouter({
       const weekEnd = endOfDay(addDays(weekStart, 6));
 
       // Fetch all activities for the week in parallel
-      const [sleepRecords, feedingRecords, diaperRecords] = await Promise.all([
+      const [
+        sleepRecords,
+        feedingRecords,
+        diaperRecords,
+        pumpingRecords,
+        medicineRecords,
+        growthRecords,
+        temperatureRecords,
+        activityRecords,
+      ] = await Promise.all([
         ctx.prisma.sleepRecord.findMany({
           where: {
             childId: input.childId,
@@ -347,13 +356,54 @@ export const timelineRouter = createTRPCRouter({
           },
           orderBy: { time: "desc" },
         }),
+        ctx.prisma.pumpingRecord.findMany({
+          where: {
+            childId: input.childId,
+            startTime: { gte: weekStart, lte: weekEnd },
+          },
+          orderBy: { startTime: "desc" },
+        }),
+        ctx.prisma.medicineRecord.findMany({
+          where: {
+            medicine: { childId: input.childId },
+            time: { gte: weekStart, lte: weekEnd },
+          },
+          include: { medicine: true },
+          orderBy: { time: "desc" },
+        }),
+        ctx.prisma.growthRecord.findMany({
+          where: {
+            childId: input.childId,
+            date: { gte: weekStart, lte: weekEnd },
+          },
+          orderBy: { date: "desc" },
+        }),
+        ctx.prisma.temperatureRecord.findMany({
+          where: {
+            childId: input.childId,
+            time: { gte: weekStart, lte: weekEnd },
+          },
+          orderBy: { time: "desc" },
+        }),
+        ctx.prisma.activityRecord.findMany({
+          where: {
+            childId: input.childId,
+            startTime: { gte: weekStart, lte: weekEnd },
+          },
+          orderBy: { startTime: "desc" },
+        }),
       ]);
 
       // Combine and sort all activities chronologically
       type Activity =
         | { type: "SLEEP"; record: (typeof sleepRecords)[0]; time: Date }
         | { type: "FEEDING"; record: (typeof feedingRecords)[0]; time: Date }
-        | { type: "DIAPER"; record: (typeof diaperRecords)[0]; time: Date };
+        | { type: "DIAPER"; record: (typeof diaperRecords)[0]; time: Date }
+        | { type: "PUMPING"; record: (typeof pumpingRecords)[0]; time: Date }
+        | { type: "MEDICINE"; record: (typeof medicineRecords)[0]; time: Date }
+        | { type: "GROWTH"; record: (typeof growthRecords)[0]; time: Date }
+        | { type: "TEMPERATURE"; record: (typeof temperatureRecords)[0]; time: Date }
+        | { type: "ACTIVITY"; record: (typeof activityRecords)[0]; time: Date };
 
       const allActivities: Activity[] = [
         ...sleepRecords.map(
@@ -365,15 +415,32 @@ export const timelineRouter = createTRPCRouter({
         ...diaperRecords.map(
           (r) => ({ type: "DIAPER" as const, record: r, time: r.time })
         ),
+        ...pumpingRecords.map(
+          (r) => ({ type: "PUMPING" as const, record: r, time: r.startTime })
+        ),
+        ...medicineRecords.map(
+          (r) => ({ type: "MEDICINE" as const, record: r, time: r.time })
+        ),
+        ...growthRecords.map(
+          (r) => ({ type: "GROWTH" as const, record: r, time: r.date })
+        ),
+        ...temperatureRecords.map(
+          (r) => ({ type: "TEMPERATURE" as const, record: r, time: r.time })
+        ),
+        ...activityRecords.map(
+          (r) => ({ type: "ACTIVITY" as const, record: r, time: r.startTime })
+        ),
       ];
 
       // Sort by time descending (most recent first)
       allActivities.sort((a, b) => b.time.getTime() - a.time.getTime());
 
-      // Group by date
+      // Group by date (using local date to ensure correct day grouping)
       const groupedByDate: Record<string, Activity[]> = {};
       for (const activity of allActivities) {
-        const dateKey = format(activity.time, "yyyy-MM-dd");
+        // Use local date components to avoid timezone issues
+        const d = new Date(activity.time);
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         if (!groupedByDate[dateKey]) {
           groupedByDate[dateKey] = [];
         }
