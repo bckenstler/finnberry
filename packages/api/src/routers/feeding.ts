@@ -3,6 +3,7 @@ import {
   logBreastfeedingSchema,
   startBreastfeedingSchema,
   endBreastfeedingSchema,
+  switchBreastfeedingSideSchema,
   logBottleSchema,
   logSolidsSchema,
   updateFeedingSchema,
@@ -102,7 +103,32 @@ export const feedingRouter = createTRPCRouter({
         where: { id: input.id },
         data: {
           endTime: input.endTime ?? new Date(),
+          side: input.side,
+          leftDurationSeconds: input.leftDurationSeconds,
+          rightDurationSeconds: input.rightDurationSeconds,
           notes: input.notes,
+        },
+      });
+
+      return feeding;
+    }),
+
+  switchBreastfeedingSide: householdProcedure
+    .input(switchBreastfeedingSideSchema)
+    .mutation(async ({ ctx, input }) => {
+      if (ctx.memberRole === "VIEWER") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Viewers cannot log activities",
+        });
+      }
+
+      const feeding = await ctx.prisma.feedingRecord.update({
+        where: { id: input.id },
+        data: {
+          side: input.newSide,
+          leftDurationSeconds: input.leftDurationSeconds,
+          rightDurationSeconds: input.rightDurationSeconds,
         },
       });
 
@@ -126,6 +152,8 @@ export const feedingRouter = createTRPCRouter({
           startTime: input.startTime,
           endTime: input.endTime,
           side: input.side,
+          leftDurationSeconds: input.leftDurationSeconds,
+          rightDurationSeconds: input.rightDurationSeconds,
           notes: input.notes,
         },
       });
@@ -198,6 +226,8 @@ export const feedingRouter = createTRPCRouter({
           startTime: input.startTime,
           endTime: input.endTime,
           side: input.side,
+          leftDurationSeconds: input.leftDurationSeconds,
+          rightDurationSeconds: input.rightDurationSeconds,
           amountMl: input.amountMl,
           bottleContentType: input.bottleContentType,
           foodItems: input.foodItems,

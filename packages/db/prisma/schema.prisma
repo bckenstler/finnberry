@@ -203,7 +203,9 @@ model FeedingRecord {
   endTime     DateTime?    @map("end_time")
 
   // Breastfeeding specific
-  side        BreastSide?
+  side                 BreastSide?
+  leftDurationSeconds  Int?  @map("left_duration_seconds")
+  rightDurationSeconds Int?  @map("right_duration_seconds")
 
   // Bottle specific
   amountMl          Int?              @map("amount_ml")

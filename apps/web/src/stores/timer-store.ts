@@ -14,6 +14,10 @@ export interface ActiveTimer {
     feedingSide?: "LEFT" | "RIGHT" | "BOTH";
     activityType?: string;
     pumpingSide?: "LEFT" | "RIGHT" | "BOTH";
+    // Per-side breastfeeding tracking
+    leftAccumulatedMs?: number;   // Total ms on LEFT before current segment
+    rightAccumulatedMs?: number;  // Total ms on RIGHT before current segment
+    currentSideStartTime?: number; // When current side segment started
   };
 }
 
@@ -22,6 +26,7 @@ interface TimerState {
   startTimer: (timer: Omit<ActiveTimer, "id">) => string;
   stopTimer: (id: string) => ActiveTimer | undefined;
   updateTimer: (id: string, updates: Partial<ActiveTimer>) => void;
+  switchBreastfeedingSide: (id: string, newSide: "LEFT" | "RIGHT") => void;
   getTimersByChild: (childId: string) => ActiveTimer[];
   getTimerByType: (childId: string, type: TimerType) => ActiveTimer | undefined;
   getElapsedTime: (id: string) => number;
@@ -35,10 +40,24 @@ export const useTimerStore = create<TimerState>()(
 
       startTimer: (timerData) => {
         const id = `${timerData.type}-${timerData.childId}-${Date.now()}`;
+        const now = timerData.startTime || Date.now();
+
+        // For feeding timers with a side, initialize per-side tracking
+        const metadata = timerData.metadata;
+        const enhancedMetadata = timerData.type === "feeding" && metadata?.feedingSide
+          ? {
+              ...metadata,
+              leftAccumulatedMs: 0,
+              rightAccumulatedMs: 0,
+              currentSideStartTime: now,
+            }
+          : metadata;
+
         const timer: ActiveTimer = {
           ...timerData,
           id,
-          startTime: timerData.startTime || Date.now(),
+          startTime: now,
+          metadata: enhancedMetadata,
         };
 
         set((state) => ({
@@ -72,6 +91,44 @@ export const useTimerStore = create<TimerState>()(
             timers: {
               ...state.timers,
               [id]: { ...timer, ...updates },
+            },
+          };
+        });
+      },
+
+      switchBreastfeedingSide: (id, newSide) => {
+        set((state) => {
+          const timer = state.timers[id];
+          if (!timer || timer.type !== "feeding") return state;
+
+          const now = Date.now();
+          const currentSide = timer.metadata?.feedingSide;
+          const currentSideStartTime = timer.metadata?.currentSideStartTime ?? timer.startTime;
+          const elapsedOnCurrentSide = now - currentSideStartTime;
+
+          // Calculate new accumulated times
+          let leftAccumulated = timer.metadata?.leftAccumulatedMs ?? 0;
+          let rightAccumulated = timer.metadata?.rightAccumulatedMs ?? 0;
+
+          if (currentSide === "LEFT") {
+            leftAccumulated += elapsedOnCurrentSide;
+          } else if (currentSide === "RIGHT") {
+            rightAccumulated += elapsedOnCurrentSide;
+          }
+
+          return {
+            timers: {
+              ...state.timers,
+              [id]: {
+                ...timer,
+                metadata: {
+                  ...timer.metadata,
+                  feedingSide: newSide,
+                  leftAccumulatedMs: leftAccumulated,
+                  rightAccumulatedMs: rightAccumulated,
+                  currentSideStartTime: now,
+                },
+              },
             },
           };
         });
@@ -113,6 +170,30 @@ export function formatElapsedTime(ms: number): string {
     return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
   }
   return `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
+}
+
+// Helper functions for per-side breastfeeding tracking
+export function getLeftElapsedMs(timer: ActiveTimer | undefined): number {
+  if (!timer) return 0;
+  const accumulated = timer.metadata?.leftAccumulatedMs ?? 0;
+  if (timer.metadata?.feedingSide === "LEFT" && timer.metadata?.currentSideStartTime) {
+    return accumulated + (Date.now() - timer.metadata.currentSideStartTime);
+  }
+  return accumulated;
+}
+
+export function getRightElapsedMs(timer: ActiveTimer | undefined): number {
+  if (!timer) return 0;
+  const accumulated = timer.metadata?.rightAccumulatedMs ?? 0;
+  if (timer.metadata?.feedingSide === "RIGHT" && timer.metadata?.currentSideStartTime) {
+    return accumulated + (Date.now() - timer.metadata.currentSideStartTime);
+  }
+  return accumulated;
+}
+
+export function getTotalBreastfeedingElapsedMs(timer: ActiveTimer | undefined): number {
+  if (!timer) return 0;
+  return getLeftElapsedMs(timer) + getRightElapsedMs(timer);
 }
 
 export function useActiveTimer(childId: string, type: TimerType) {

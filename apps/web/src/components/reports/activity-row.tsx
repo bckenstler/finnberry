@@ -43,6 +43,8 @@ interface FeedingRecord {
   endTime: Date | null;
   feedingType: string;
   side?: string | null;
+  leftDurationSeconds?: number | null;
+  rightDurationSeconds?: number | null;
   amountMl?: number | null;
   bottleContentType?: string | null;
   foodItems?: string[] | null;
@@ -111,6 +113,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
   const [editBreastSide, setEditBreastSide] = useState<"LEFT" | "RIGHT" | "BOTH">("LEFT");
   const [editBreastStart, setEditBreastStart] = useState<Date | null>(null);
   const [editBreastEnd, setEditBreastEnd] = useState<Date | null>(null);
+  const [editLeftDurationSeconds, setEditLeftDurationSeconds] = useState<number>(0);
+  const [editRightDurationSeconds, setEditRightDurationSeconds] = useState<number>(0);
 
   // Edit state for bottle
   const [editBottleContentType, setEditBottleContentType] = useState<"FORMULA" | "BREAST_MILK">("FORMULA");
@@ -144,6 +148,26 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
           setEditBreastSide((r.side as "LEFT" | "RIGHT" | "BOTH") || "LEFT");
           setEditBreastStart(new Date(r.startTime));
           setEditBreastEnd(r.endTime ? new Date(r.endTime) : null);
+
+          // Initialize per-side durations from record or calculate from total duration
+          if (r.leftDurationSeconds != null || r.rightDurationSeconds != null) {
+            setEditLeftDurationSeconds(r.leftDurationSeconds ?? 0);
+            setEditRightDurationSeconds(r.rightDurationSeconds ?? 0);
+          } else if (r.endTime) {
+            // Backwards compatibility: split based on side field
+            const totalSeconds = Math.floor((new Date(r.endTime).getTime() - new Date(r.startTime).getTime()) / 1000);
+            if (r.side === "LEFT") {
+              setEditLeftDurationSeconds(totalSeconds);
+              setEditRightDurationSeconds(0);
+            } else if (r.side === "RIGHT") {
+              setEditLeftDurationSeconds(0);
+              setEditRightDurationSeconds(totalSeconds);
+            } else {
+              // BOTH - split evenly
+              setEditLeftDurationSeconds(Math.floor(totalSeconds / 2));
+              setEditRightDurationSeconds(totalSeconds - Math.floor(totalSeconds / 2));
+            }
+          }
         } else if (r.feedingType === "BOTTLE") {
           setEditBottleContentType((r.bottleContentType as "FORMULA" | "BREAST_MILK") || "FORMULA");
           setEditBottleAmountOz(r.amountMl ? mlToOz(r.amountMl) : 3);
@@ -258,6 +282,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
             side: editBreastSide,
             startTime: editBreastStart,
             endTime: editBreastEnd,
+            leftDurationSeconds: editLeftDurationSeconds,
+            rightDurationSeconds: editRightDurationSeconds,
           });
         } else if (r.feedingType === "BOTTLE" && editBottleTime) {
           const amountMl = editBottleUnit === "oz"
@@ -317,7 +343,23 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
         timeDisplay = r.endTime
           ? formatTimeRange(r.startTime, r.endTime)
           : `${formatTimeShort(r.startTime)} - ongoing`;
-        details = r.side === "LEFT" ? "Left" : r.side === "RIGHT" ? "Right" : "Both";
+        // Show side details with per-side times if available
+        if (r.leftDurationSeconds != null && r.rightDurationSeconds != null && (r.leftDurationSeconds > 0 || r.rightDurationSeconds > 0)) {
+          const formatSecs = (s: number) => {
+            const mins = Math.floor(s / 60);
+            const secs = s % 60;
+            return secs > 0 ? `${mins}:${String(secs).padStart(2, "0")}` : `${mins}m`;
+          };
+          if (r.leftDurationSeconds > 0 && r.rightDurationSeconds > 0) {
+            details = `L: ${formatSecs(r.leftDurationSeconds)} R: ${formatSecs(r.rightDurationSeconds)}`;
+          } else if (r.leftDurationSeconds > 0) {
+            details = "Left";
+          } else {
+            details = "Right";
+          }
+        } else {
+          details = r.side === "LEFT" ? "Left" : r.side === "RIGHT" ? "Right" : "Both";
+        }
       } else if (r.feedingType === "BOTTLE") {
         category = "bottle";
         const amount = r.amountMl
@@ -382,20 +424,80 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       const r = activity.record as FeedingRecord;
 
       if (r.feedingType === "BREAST") {
+        const totalSeconds = editLeftDurationSeconds + editRightDurationSeconds;
+        const sliderValue = totalSeconds > 0 ? (editLeftDurationSeconds / totalSeconds) * 100 : 50;
+
+        const formatDuration = (seconds: number) => {
+          const mins = Math.floor(seconds / 60);
+          const secs = seconds % 60;
+          return `${mins}:${String(secs).padStart(2, "0")}`;
+        };
+
+        const handleSliderChange = (value: number[]) => {
+          const leftPercent = value[0] / 100;
+          const newLeftSeconds = Math.round(totalSeconds * leftPercent);
+          const newRightSeconds = totalSeconds - newLeftSeconds;
+          setEditLeftDurationSeconds(newLeftSeconds);
+          setEditRightDurationSeconds(newRightSeconds);
+
+          // Update side based on where the time is
+          if (newLeftSeconds > 0 && newRightSeconds > 0) {
+            setEditBreastSide("BOTH");
+          } else if (newLeftSeconds > 0) {
+            setEditBreastSide("LEFT");
+          } else {
+            setEditBreastSide("RIGHT");
+          }
+        };
+
         return (
           <div className="space-y-4">
-            <SimpleToggleGroup
-              options={[
-                { value: "LEFT", label: "Left" },
-                { value: "RIGHT", label: "Right" },
-                { value: "BOTH", label: "Both" },
-              ]}
-              value={editBreastSide}
-              onChange={setEditBreastSide}
-              className="mx-0 my-0"
-            />
             <TimeRow label="Start Time" value={editBreastStart} onChange={setEditBreastStart} />
             <TimeRow label="End Time" value={editBreastEnd} onChange={setEditBreastEnd} placeholder="Set time" />
+
+            {totalSeconds > 0 && (
+              <div className="py-4 border-t border-border">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-muted-foreground">Duration Split</span>
+                  <span className="text-sm font-medium">
+                    Total: {formatDuration(totalSeconds)}
+                  </span>
+                </div>
+
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-primary font-medium">Left: {formatDuration(editLeftDurationSeconds)}</span>
+                  <span className="text-primary font-medium">Right: {formatDuration(editRightDurationSeconds)}</span>
+                </div>
+
+                <Slider
+                  value={[sliderValue]}
+                  onValueChange={handleSliderChange}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full"
+                />
+
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                  <span>All Left</span>
+                  <span>All Right</span>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-2 border-t border-border">
+              <p className="text-sm text-muted-foreground mb-2">Last breast used</p>
+              <SimpleToggleGroup
+                options={[
+                  { value: "LEFT", label: "Left" },
+                  { value: "RIGHT", label: "Right" },
+                  { value: "BOTH", label: "Both" },
+                ]}
+                value={editBreastSide}
+                onChange={setEditBreastSide}
+                className="mx-0 my-0"
+              />
+            </div>
           </div>
         );
       }

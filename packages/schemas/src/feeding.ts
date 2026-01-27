@@ -15,6 +15,8 @@ export const logBreastfeedingSchema = z.object({
   startTime: z.coerce.date(),
   endTime: z.coerce.date().optional(),
   side: breastSideSchema,
+  leftDurationSeconds: z.number().int().min(0).optional(),
+  rightDurationSeconds: z.number().int().min(0).optional(),
   notes: z.string().max(500).optional(),
 });
 export type LogBreastfeedingInput = z.infer<typeof logBreastfeedingSchema>;
@@ -29,9 +31,20 @@ export type StartBreastfeedingInput = z.infer<typeof startBreastfeedingSchema>;
 export const endBreastfeedingSchema = z.object({
   id: idSchema,
   endTime: z.coerce.date().optional(),
+  side: breastSideSchema.optional(),
+  leftDurationSeconds: z.number().int().min(0).optional(),
+  rightDurationSeconds: z.number().int().min(0).optional(),
   notes: z.string().max(500).optional(),
 });
 export type EndBreastfeedingInput = z.infer<typeof endBreastfeedingSchema>;
+
+export const switchBreastfeedingSideSchema = z.object({
+  id: idSchema,
+  newSide: breastSideSchema,
+  leftDurationSeconds: z.number().int().min(0).optional(),
+  rightDurationSeconds: z.number().int().min(0).optional(),
+});
+export type SwitchBreastfeedingSideInput = z.infer<typeof switchBreastfeedingSideSchema>;
 
 export const logBottleSchema = z.object({
   childId: idSchema,
@@ -57,6 +70,8 @@ export const updateFeedingSchema = z.object({
   startTime: z.coerce.date().optional(),
   endTime: z.coerce.date().optional().nullable(),
   side: breastSideSchema.optional().nullable(),
+  leftDurationSeconds: z.number().int().min(0).optional().nullable(),
+  rightDurationSeconds: z.number().int().min(0).optional().nullable(),
   amountMl: z.number().min(0).max(500).optional().nullable(),
   bottleContentType: bottleContentTypeSchema.optional().nullable(),
   foodItems: z.array(z.string()).optional(),

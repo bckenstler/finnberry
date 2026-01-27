@@ -1,7 +1,6 @@
 "use client";
 
 import { trpc } from "@/lib/trpc/provider";
-import { ActiveTimers } from "@/components/tracking/active-timers";
 import {
   ActivityCard,
   formatSleepDetails,
@@ -21,9 +20,8 @@ export function HomeView({ childId }: HomeViewProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="h-24 bg-muted animate-pulse rounded-xl" />
         <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-          {[1, 2, 3, 4, 5].map((i) => (
+          {[1, 2, 3, 4].map((i) => (
             <div
               key={i}
               className="h-24 bg-muted animate-pulse rounded-xl"
@@ -52,9 +50,6 @@ export function HomeView({ childId }: HomeViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Active timers at top */}
-      <ActiveTimers childId={childId} />
-
       {/* Activity cards grid - 2 cols on mobile, 2 on tablet, 4 on desktop */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <ActivityCard
