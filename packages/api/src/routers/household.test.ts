@@ -37,7 +37,7 @@ describe("householdRouter", () => {
       const result = await caller.list();
 
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe("Test Household");
+      expect(result[0]?.name).toBe("Test Household");
     });
   });
 
@@ -252,7 +252,7 @@ describe("householdRouter", () => {
   describe("acceptInvite", () => {
     it("accepts valid invite and creates membership", async () => {
       const ctx = createTestContext({
-        session: createTestUser({ user: { email: "invite@example.com" } }),
+        session: createTestUser({ user: { id: TEST_IDS.userId, email: "invite@example.com" } }),
       });
       const caller = createCaller(ctx);
 
@@ -295,7 +295,7 @@ describe("householdRouter", () => {
 
     it("throws FORBIDDEN when email does not match", async () => {
       const ctx = createTestContext({
-        session: createTestUser({ user: { email: "wrong@example.com" } }),
+        session: createTestUser({ user: { id: TEST_IDS.userId, email: "wrong@example.com" } }),
       });
       const caller = createCaller(ctx);
 

@@ -155,9 +155,9 @@ export const activityRouter = createTRPCRouter({
           if (!acc[r.activityType]) {
             acc[r.activityType] = { count: 0, totalMinutes: 0 };
           }
-          acc[r.activityType].count++;
+          acc[r.activityType]!.count++;
           if (r.endTime) {
-            acc[r.activityType].totalMinutes += calculateDurationMinutes(
+            acc[r.activityType]!.totalMinutes += calculateDurationMinutes(
               r.startTime,
               r.endTime
             );

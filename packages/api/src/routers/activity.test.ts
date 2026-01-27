@@ -179,8 +179,8 @@ describe("activityRouter", () => {
       const result = await caller.summary({ childId });
 
       expect(result.totalActivities).toBe(3);
-      expect(result.byType.TUMMY_TIME.count).toBe(2);
-      expect(result.byType.BATH.count).toBe(1);
+      expect(result.byType.TUMMY_TIME?.count).toBe(2);
+      expect(result.byType.BATH?.count).toBe(1);
     });
   });
 });

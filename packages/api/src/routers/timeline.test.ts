@@ -231,7 +231,7 @@ describe("timelineRouter", () => {
       const result = await caller.getWeek({ childId, weekStart });
 
       // The first day should contain the sleep record
-      expect(result.days[0].sleepRecords).toHaveLength(1);
+      expect(result.days[0]?.sleepRecords).toHaveLength(1);
     });
   });
 
@@ -281,9 +281,9 @@ describe("timelineRouter", () => {
 
       expect(result.activities).toHaveLength(3);
       // Should be sorted descending (most recent first)
-      expect(result.activities[0].type).toBe("FEEDING");
-      expect(result.activities[1].type).toBe("DIAPER");
-      expect(result.activities[2].type).toBe("SLEEP");
+      expect(result.activities[0]?.type).toBe("FEEDING");
+      expect(result.activities[1]?.type).toBe("DIAPER");
+      expect(result.activities[2]?.type).toBe("SLEEP");
     });
 
     it("groups activities by date", async () => {

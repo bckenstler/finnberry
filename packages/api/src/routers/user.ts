@@ -78,8 +78,9 @@ export const userRouter = createTRPCRouter({
           });
         } else {
           // Transfer ownership to first admin, or first member if no admins
+          // We know otherMembers.length > 0 from the if check above
           const newOwner =
-            otherMembers.find((m) => m.role === "ADMIN") || otherMembers[0];
+            otherMembers.find((m) => m.role === "ADMIN") ?? otherMembers[0]!;
 
           await ctx.prisma.householdMember.update({
             where: {
