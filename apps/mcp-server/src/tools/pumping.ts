@@ -1,5 +1,13 @@
 import type { PrismaClient } from "@finnberry/db";
-import { getDateRange, calculateDurationMinutes, formatDuration } from "@finnberry/utils";
+import { getDateRange, formatDuration } from "@finnberry/utils";
+import {
+  buildStartResponse,
+  buildEndResponse,
+  buildLogResponse,
+  calculateTotalMinutes,
+  getCompletedRecords,
+  mapRecentRecords,
+} from "./helpers.js";
 
 export async function handlePumpingTools(
   name: string,
@@ -27,12 +35,12 @@ export async function handlePumpingTools(
         },
       });
 
-      return {
-        success: true,
-        pumpingId: pumping.id,
-        message: "Started pumping timer",
-        startTime: pumping.startTime.toISOString(),
-      };
+      return buildStartResponse(
+        "pumpingId",
+        pumping.id,
+        "Started pumping timer",
+        pumping.startTime
+      );
     }
 
     case "end-pumping": {
@@ -51,15 +59,9 @@ export async function handlePumpingTools(
         },
       });
 
-      const duration = calculateDurationMinutes(pumping.startTime, pumping.endTime!);
-
-      return {
-        success: true,
-        pumpingId: pumping.id,
-        duration: formatDuration(duration),
-        durationMinutes: duration,
+      return buildEndResponse("pumpingId", pumping.id, pumping.startTime, pumping.endTime!, {
         amountMl: pumping.amountMl,
-      };
+      });
     }
 
     case "log-pumping": {
@@ -83,17 +85,10 @@ export async function handlePumpingTools(
         },
       });
 
-      const duration = pumping.endTime
-        ? calculateDurationMinutes(pumping.startTime, pumping.endTime)
-        : null;
-
-      return {
-        success: true,
-        pumpingId: pumping.id,
-        duration: duration ? formatDuration(duration) : null,
+      return buildLogResponse("pumpingId", pumping.id, pumping.startTime, pumping.endTime, {
         amountMl: pumping.amountMl,
         side: pumping.side,
-      };
+      });
     }
 
     case "get-pumping-summary": {
@@ -112,13 +107,8 @@ export async function handlePumpingTools(
         orderBy: { startTime: "desc" },
       });
 
-      const completedRecords = records.filter((r) => r.endTime !== null);
-
-      const totalMinutes = completedRecords.reduce((sum, r) => {
-        if (!r.endTime) return sum;
-        return sum + calculateDurationMinutes(r.startTime, r.endTime);
-      }, 0);
-
+      const completedRecords = getCompletedRecords(records);
+      const totalMinutes = calculateTotalMinutes(completedRecords);
       const totalAmountMl = records.reduce((sum, r) => sum + (r.amountMl ?? 0), 0);
 
       return {
@@ -131,13 +121,7 @@ export async function handlePumpingTools(
         averageAmountMl: completedRecords.length > 0
           ? Math.round(totalAmountMl / completedRecords.length)
           : 0,
-        recentSessions: records.slice(0, 5).map((r) => ({
-          id: r.id,
-          startTime: r.startTime.toISOString(),
-          endTime: r.endTime?.toISOString(),
-          duration: r.endTime
-            ? formatDuration(calculateDurationMinutes(r.startTime, r.endTime))
-            : "ongoing",
+        recentSessions: mapRecentRecords(records, 5, (r) => ({
           amountMl: r.amountMl,
           side: r.side,
         })),

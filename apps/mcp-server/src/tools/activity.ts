@@ -1,5 +1,11 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, calculateDurationMinutes, formatDuration } from "@finnberry/utils";
+import {
+  buildStartResponse,
+  buildEndResponse,
+  buildLogResponse,
+  mapRecentRecords,
+} from "./helpers.js";
 
 type ActivityType =
   | "TUMMY_TIME"
@@ -56,14 +62,16 @@ export async function handleActivityTools(
         },
       });
 
-      return {
-        success: true,
-        activityId: activity.id,
-        activityType: activity.activityType,
-        activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
-        message: `Started ${ACTIVITY_LABELS[activityType]} timer`,
-        startTime: activity.startTime.toISOString(),
-      };
+      return buildStartResponse(
+        "activityId",
+        activity.id,
+        `Started ${ACTIVITY_LABELS[activityType]} timer`,
+        activity.startTime,
+        {
+          activityType: activity.activityType,
+          activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
+        }
+      );
     }
 
     case "end-activity": {
@@ -80,16 +88,10 @@ export async function handleActivityTools(
         },
       });
 
-      const duration = calculateDurationMinutes(activity.startTime, activity.endTime!);
-
-      return {
-        success: true,
-        activityId: activity.id,
+      return buildEndResponse("activityId", activity.id, activity.startTime, activity.endTime!, {
         activityType: activity.activityType,
         activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
-        duration: formatDuration(duration),
-        durationMinutes: duration,
-      };
+      });
     }
 
     case "log-activity": {
@@ -111,17 +113,10 @@ export async function handleActivityTools(
         },
       });
 
-      const duration = activity.endTime
-        ? calculateDurationMinutes(activity.startTime, activity.endTime)
-        : null;
-
-      return {
-        success: true,
-        activityId: activity.id,
+      return buildLogResponse("activityId", activity.id, activity.startTime, activity.endTime, {
         activityType: activity.activityType,
         activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
-        duration: duration ? formatDuration(duration) : null,
-      };
+      });
     }
 
     case "get-activity-summary": {
@@ -168,15 +163,9 @@ export async function handleActivityTools(
           totalTime: formatDuration(data.totalMinutes),
           totalMinutes: data.totalMinutes,
         })),
-        recentActivities: records.slice(0, 5).map((r) => ({
-          id: r.id,
+        recentActivities: mapRecentRecords(records, 5, (r) => ({
           activityType: r.activityType,
           activityLabel: ACTIVITY_LABELS[r.activityType as ActivityType],
-          startTime: r.startTime.toISOString(),
-          endTime: r.endTime?.toISOString(),
-          duration: r.endTime
-            ? formatDuration(calculateDurationMinutes(r.startTime, r.endTime))
-            : "ongoing",
           notes: r.notes,
         })),
       };
