@@ -40,6 +40,12 @@ export const timelineRouter = createTRPCRouter({
         lastBottle,
         lastSolids,
         lastDiaper,
+        lastPumping,
+        activePumping,
+        lastMedicine,
+        lastGrowth,
+        lastTemperature,
+        lastActivity,
       ] = await Promise.all([
         // Last completed sleep
         ctx.prisma.sleepRecord.findFirst({
@@ -98,6 +104,56 @@ export const timelineRouter = createTRPCRouter({
           },
           orderBy: { time: "desc" },
         }),
+        // Last completed pumping session
+        ctx.prisma.pumpingRecord.findFirst({
+          where: {
+            childId: input.childId,
+            endTime: { not: null },
+          },
+          orderBy: { endTime: "desc" },
+        }),
+        // Active pumping (no end time)
+        ctx.prisma.pumpingRecord.findFirst({
+          where: {
+            childId: input.childId,
+            endTime: null,
+          },
+          orderBy: { startTime: "desc" },
+        }),
+        // Last medicine record
+        ctx.prisma.medicineRecord.findFirst({
+          where: {
+            medicine: {
+              childId: input.childId,
+            },
+          },
+          include: {
+            medicine: true,
+          },
+          orderBy: { time: "desc" },
+        }),
+        // Last growth record
+        ctx.prisma.growthRecord.findFirst({
+          where: {
+            childId: input.childId,
+          },
+          orderBy: { date: "desc" },
+        }),
+        // Last temperature record
+        ctx.prisma.temperatureRecord.findFirst({
+          where: {
+            childId: input.childId,
+          },
+          orderBy: { time: "desc" },
+        }),
+        // Last activity record
+        ctx.prisma.activityRecord.findFirst({
+          where: {
+            childId: input.childId,
+            endTime: { not: null },
+          },
+          orderBy: { endTime: "desc" },
+        }),
       ]);
 
       return {
@@ -108,6 +164,12 @@ export const timelineRouter = createTRPCRouter({
         lastBottle,
         lastSolids,
         lastDiaper,
+        lastPumping,
+        activePumping,
+        lastMedicine,
+        lastGrowth,
+        lastTemperature,
+        lastActivity,
       };
     }),
 

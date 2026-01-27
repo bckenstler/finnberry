@@ -8,7 +8,12 @@ export type ActivityCategory =
   | "nursing"
   | "bottle"
   | "solids"
-  | "diaper";
+  | "diaper"
+  | "pumping"
+  | "medicine"
+  | "growth"
+  | "temperature"
+  | "activity";
 
 export interface ActivityColorConfig {
   bg: string;
@@ -71,6 +76,56 @@ export const activityColors: Record<ActivityCategory, ActivityColorConfig> = {
     borderDark: "dark:border-yellow-400",
     icon: "text-yellow-600",
     iconDark: "dark:text-yellow-400",
+  },
+  pumping: {
+    bg: "bg-purple-500",
+    bgDark: "dark:bg-purple-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-purple-600",
+    borderDark: "dark:border-purple-500",
+    icon: "text-purple-600",
+    iconDark: "dark:text-purple-400",
+  },
+  medicine: {
+    bg: "bg-red-500",
+    bgDark: "dark:bg-red-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-red-600",
+    borderDark: "dark:border-red-500",
+    icon: "text-red-600",
+    iconDark: "dark:text-red-400",
+  },
+  growth: {
+    bg: "bg-green-500",
+    bgDark: "dark:bg-green-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-green-600",
+    borderDark: "dark:border-green-500",
+    icon: "text-green-600",
+    iconDark: "dark:text-green-400",
+  },
+  temperature: {
+    bg: "bg-rose-500",
+    bgDark: "dark:bg-rose-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-rose-600",
+    borderDark: "dark:border-rose-500",
+    icon: "text-rose-600",
+    iconDark: "dark:text-rose-400",
+  },
+  activity: {
+    bg: "bg-amber-500",
+    bgDark: "dark:bg-amber-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-amber-600",
+    borderDark: "dark:border-amber-500",
+    icon: "text-amber-600",
+    iconDark: "dark:text-amber-400",
   },
 };
 
