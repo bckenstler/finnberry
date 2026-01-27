@@ -5,6 +5,11 @@ import { handleFeedingTools } from "./feeding.js";
 import { handleDiaperTools } from "./diaper.js";
 import { handleChildTools } from "./child.js";
 import { handleSummaryTools } from "./summary.js";
+import { handlePumpingTools } from "./pumping.js";
+import { handleMedicineTools } from "./medicine.js";
+import { handleGrowthTools } from "./growth.js";
+import { handleTemperatureTools } from "./temperature.js";
+import { handleActivityTools } from "./activity.js";
 
 export function registerTools(): Tool[] {
   return [
@@ -261,6 +266,441 @@ export function registerTools(): Tool[] {
       },
     },
 
+    // Pumping tools
+    {
+      name: "start-pumping",
+      description: "Start a pumping timer for a child. Returns the pumping record ID.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "end-pumping",
+      description: "End an active pumping session",
+      inputSchema: {
+        type: "object",
+        properties: {
+          pumpingId: {
+            type: "string",
+            description: "The ID of the pumping record to end",
+          },
+          amountMl: {
+            type: "number",
+            description: "Amount pumped in milliliters",
+          },
+          notes: {
+            type: "string",
+            description: "Optional notes about the pumping session",
+          },
+        },
+        required: ["pumpingId"],
+      },
+    },
+    {
+      name: "log-pumping",
+      description: "Log a completed pumping session with start and optional end times",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startTime: {
+            type: "string",
+            format: "date-time",
+            description: "Pumping start time (ISO 8601)",
+          },
+          endTime: {
+            type: "string",
+            format: "date-time",
+            description: "Pumping end time (ISO 8601)",
+          },
+          amountMl: {
+            type: "number",
+            description: "Amount pumped in milliliters",
+          },
+          side: {
+            type: "string",
+            enum: ["LEFT", "RIGHT", "BOTH"],
+            description: "Which breast was pumped",
+          },
+          notes: {
+            type: "string",
+          },
+        },
+        required: ["childId", "startTime"],
+      },
+    },
+    {
+      name: "get-pumping-summary",
+      description: "Get pumping statistics for a time period",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          period: {
+            type: "string",
+            enum: ["today", "week", "month"],
+            default: "today",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+
+    // Medicine tools
+    {
+      name: "create-medicine",
+      description: "Create a medicine definition for a child",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          medicineName: {
+            type: "string",
+            description: "Name of the medicine",
+          },
+          dosage: {
+            type: "string",
+            description: "Default dosage (e.g., '5ml', '1 tablet')",
+          },
+          frequency: {
+            type: "string",
+            description: "How often to take (e.g., 'twice daily', 'every 6 hours')",
+          },
+          notes: {
+            type: "string",
+            description: "Additional notes about the medicine",
+          },
+        },
+        required: ["childId", "medicineName", "dosage"],
+      },
+    },
+    {
+      name: "list-medicines",
+      description: "List all medicines for a child",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          activeOnly: {
+            type: "boolean",
+            description: "Only show active medicines (default: true)",
+            default: true,
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "log-medicine",
+      description: "Log a medicine dose administration",
+      inputSchema: {
+        type: "object",
+        properties: {
+          medicineId: {
+            type: "string",
+            description: "The ID of the medicine",
+          },
+          time: {
+            type: "string",
+            format: "date-time",
+            description: "Time of administration (defaults to now)",
+          },
+          dosageGiven: {
+            type: "string",
+            description: "Actual dosage given (defaults to medicine's default dosage)",
+          },
+          skipped: {
+            type: "boolean",
+            description: "Whether the dose was skipped",
+            default: false,
+          },
+          notes: {
+            type: "string",
+            description: "Notes about this dose",
+          },
+        },
+        required: ["medicineId"],
+      },
+    },
+    {
+      name: "get-medicine-records",
+      description: "Get medicine administration history",
+      inputSchema: {
+        type: "object",
+        properties: {
+          medicineId: {
+            type: "string",
+            description: "The ID of the medicine",
+          },
+          period: {
+            type: "string",
+            enum: ["today", "week", "month"],
+            default: "week",
+          },
+        },
+        required: ["medicineId"],
+      },
+    },
+
+    // Growth tools
+    {
+      name: "log-growth",
+      description: "Record growth measurements (weight, height, head circumference)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          date: {
+            type: "string",
+            format: "date",
+            description: "Date of measurement (ISO 8601 date)",
+          },
+          weightKg: {
+            type: "number",
+            description: "Weight in kilograms",
+          },
+          heightCm: {
+            type: "number",
+            description: "Height/length in centimeters",
+          },
+          headCircumferenceCm: {
+            type: "number",
+            description: "Head circumference in centimeters",
+          },
+          notes: {
+            type: "string",
+          },
+        },
+        required: ["childId", "date"],
+      },
+    },
+    {
+      name: "get-growth-records",
+      description: "Get growth measurement history",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          limit: {
+            type: "number",
+            description: "Maximum number of records to return (default: 10)",
+            default: 10,
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "get-latest-growth",
+      description: "Get the most recent growth measurements",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+
+    // Temperature tools
+    {
+      name: "log-temperature",
+      description: "Record a temperature reading",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          temperatureCelsius: {
+            type: "number",
+            description: "Temperature in Celsius",
+          },
+          time: {
+            type: "string",
+            format: "date-time",
+            description: "Time of reading (defaults to now)",
+          },
+          notes: {
+            type: "string",
+          },
+        },
+        required: ["childId", "temperatureCelsius"],
+      },
+    },
+    {
+      name: "get-temperature-records",
+      description: "Get temperature reading history",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          period: {
+            type: "string",
+            enum: ["today", "week", "month"],
+            default: "week",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "get-latest-temperature",
+      description: "Get the most recent temperature reading",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+
+    // Activity tools
+    {
+      name: "start-activity",
+      description: "Start an activity timer for a child",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          activityType: {
+            type: "string",
+            enum: [
+              "TUMMY_TIME",
+              "BATH",
+              "OUTDOOR_PLAY",
+              "INDOOR_PLAY",
+              "SCREEN_TIME",
+              "SKIN_TO_SKIN",
+              "STORYTIME",
+              "TEETH_BRUSHING",
+              "OTHER",
+            ],
+            description: "Type of activity",
+          },
+        },
+        required: ["childId", "activityType"],
+      },
+    },
+    {
+      name: "end-activity",
+      description: "End an active activity session",
+      inputSchema: {
+        type: "object",
+        properties: {
+          activityId: {
+            type: "string",
+            description: "The ID of the activity record to end",
+          },
+          notes: {
+            type: "string",
+            description: "Optional notes about the activity",
+          },
+        },
+        required: ["activityId"],
+      },
+    },
+    {
+      name: "log-activity",
+      description: "Log a completed activity with start and optional end times",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          activityType: {
+            type: "string",
+            enum: [
+              "TUMMY_TIME",
+              "BATH",
+              "OUTDOOR_PLAY",
+              "INDOOR_PLAY",
+              "SCREEN_TIME",
+              "SKIN_TO_SKIN",
+              "STORYTIME",
+              "TEETH_BRUSHING",
+              "OTHER",
+            ],
+            description: "Type of activity",
+          },
+          startTime: {
+            type: "string",
+            format: "date-time",
+            description: "Activity start time (ISO 8601)",
+          },
+          endTime: {
+            type: "string",
+            format: "date-time",
+            description: "Activity end time (ISO 8601)",
+          },
+          notes: {
+            type: "string",
+          },
+        },
+        required: ["childId", "activityType", "startTime"],
+      },
+    },
+    {
+      name: "get-activity-summary",
+      description: "Get activity statistics for a time period",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          period: {
+            type: "string",
+            enum: ["today", "week", "month"],
+            default: "today",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+
     // Child tools
     {
       name: "list-children",
@@ -312,6 +752,26 @@ export async function handleToolCall(
     // Diaper tools
     else if (name.includes("diaper")) {
       result = await handleDiaperTools(name, args, prisma);
+    }
+    // Pumping tools
+    else if (name.includes("pumping")) {
+      result = await handlePumpingTools(name, args, prisma);
+    }
+    // Medicine tools
+    else if (name.includes("medicine")) {
+      result = await handleMedicineTools(name, args, prisma);
+    }
+    // Growth tools
+    else if (name.includes("growth")) {
+      result = await handleGrowthTools(name, args, prisma);
+    }
+    // Temperature tools
+    else if (name.includes("temperature")) {
+      result = await handleTemperatureTools(name, args, prisma);
+    }
+    // Activity tools
+    else if (name.includes("activity")) {
+      result = await handleActivityTools(name, args, prisma);
     }
     // Child tools
     else if (name === "list-children") {

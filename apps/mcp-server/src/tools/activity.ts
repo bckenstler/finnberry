@@ -1,0 +1,188 @@
+import type { PrismaClient } from "@finnberry/db";
+import { getDateRange, calculateDurationMinutes, formatDuration } from "@finnberry/utils";
+
+type ActivityType =
+  | "TUMMY_TIME"
+  | "BATH"
+  | "OUTDOOR_PLAY"
+  | "INDOOR_PLAY"
+  | "SCREEN_TIME"
+  | "SKIN_TO_SKIN"
+  | "STORYTIME"
+  | "TEETH_BRUSHING"
+  | "OTHER";
+
+const ACTIVITY_LABELS: Record<ActivityType, string> = {
+  TUMMY_TIME: "Tummy Time",
+  BATH: "Bath",
+  OUTDOOR_PLAY: "Outdoor Play",
+  INDOOR_PLAY: "Indoor Play",
+  SCREEN_TIME: "Screen Time",
+  SKIN_TO_SKIN: "Skin to Skin",
+  STORYTIME: "Storytime",
+  TEETH_BRUSHING: "Teeth Brushing",
+  OTHER: "Other Activity",
+};
+
+export async function handleActivityTools(
+  name: string,
+  args: Record<string, unknown>,
+  prisma: PrismaClient
+): Promise<unknown> {
+  switch (name) {
+    case "start-activity": {
+      const { childId, activityType } = args as {
+        childId: string;
+        activityType: ActivityType;
+      };
+
+      const existingActive = await prisma.activityRecord.findFirst({
+        where: {
+          childId,
+          activityType,
+          endTime: null,
+        },
+      });
+
+      if (existingActive) {
+        throw new Error(`There is already an active ${ACTIVITY_LABELS[activityType]} session for this child`);
+      }
+
+      const activity = await prisma.activityRecord.create({
+        data: {
+          childId,
+          activityType,
+          startTime: new Date(),
+        },
+      });
+
+      return {
+        success: true,
+        activityId: activity.id,
+        activityType: activity.activityType,
+        activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
+        message: `Started ${ACTIVITY_LABELS[activityType]} timer`,
+        startTime: activity.startTime.toISOString(),
+      };
+    }
+
+    case "end-activity": {
+      const { activityId, notes } = args as {
+        activityId: string;
+        notes?: string;
+      };
+
+      const activity = await prisma.activityRecord.update({
+        where: { id: activityId },
+        data: {
+          endTime: new Date(),
+          notes,
+        },
+      });
+
+      const duration = calculateDurationMinutes(activity.startTime, activity.endTime!);
+
+      return {
+        success: true,
+        activityId: activity.id,
+        activityType: activity.activityType,
+        activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
+        duration: formatDuration(duration),
+        durationMinutes: duration,
+      };
+    }
+
+    case "log-activity": {
+      const { childId, activityType, startTime, endTime, notes } = args as {
+        childId: string;
+        activityType: ActivityType;
+        startTime: string;
+        endTime?: string;
+        notes?: string;
+      };
+
+      const activity = await prisma.activityRecord.create({
+        data: {
+          childId,
+          activityType,
+          startTime: new Date(startTime),
+          endTime: endTime ? new Date(endTime) : null,
+          notes,
+        },
+      });
+
+      const duration = activity.endTime
+        ? calculateDurationMinutes(activity.startTime, activity.endTime)
+        : null;
+
+      return {
+        success: true,
+        activityId: activity.id,
+        activityType: activity.activityType,
+        activityLabel: ACTIVITY_LABELS[activity.activityType as ActivityType],
+        duration: duration ? formatDuration(duration) : null,
+      };
+    }
+
+    case "get-activity-summary": {
+      const { childId, period = "today" } = args as {
+        childId: string;
+        period?: "today" | "week" | "month";
+      };
+
+      const { start, end } = getDateRange(period);
+
+      const records = await prisma.activityRecord.findMany({
+        where: {
+          childId,
+          startTime: { gte: start, lte: end },
+        },
+        orderBy: { startTime: "desc" },
+      });
+
+      // Group by activity type
+      const byType: Record<string, { count: number; totalMinutes: number }> = {};
+
+      records.forEach((r) => {
+        const type = r.activityType;
+        if (!byType[type]) {
+          byType[type] = { count: 0, totalMinutes: 0 };
+        }
+        byType[type].count++;
+        if (r.endTime) {
+          byType[type].totalMinutes += calculateDurationMinutes(r.startTime, r.endTime);
+        }
+      });
+
+      const totalMinutes = Object.values(byType).reduce((sum, t) => sum + t.totalMinutes, 0);
+
+      return {
+        period,
+        totalActivities: records.length,
+        totalTime: formatDuration(totalMinutes),
+        totalMinutes,
+        byType: Object.entries(byType).map(([type, data]) => ({
+          activityType: type,
+          activityLabel: ACTIVITY_LABELS[type as ActivityType],
+          count: data.count,
+          totalTime: formatDuration(data.totalMinutes),
+          totalMinutes: data.totalMinutes,
+        })),
+        recentActivities: records.slice(0, 5).map((r) => ({
+          id: r.id,
+          activityType: r.activityType,
+          activityLabel: ACTIVITY_LABELS[r.activityType as ActivityType],
+          startTime: r.startTime.toISOString(),
+          endTime: r.endTime?.toISOString(),
+          duration: r.endTime
+            ? formatDuration(calculateDurationMinutes(r.startTime, r.endTime))
+            : "ongoing",
+          notes: r.notes,
+        })),
+      };
+    }
+
+    default:
+      throw new Error(`Unknown activity tool: ${name}`);
+  }
+}
