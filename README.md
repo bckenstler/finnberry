@@ -7,6 +7,11 @@ An open-source baby tracking app with MCP (Model Context Protocol) integration.
 - **Sleep Tracking**: Timer-based tracking for naps and night sleep with quality ratings
 - **Feeding Tracking**: Breastfeeding with per-side duration tracking and side switching, bottle (with amounts), and solids
 - **Diaper Tracking**: Wet, dirty, or both with optional color/consistency/amount
+- **Pumping Tracking**: Timer-based pumping sessions with left/right amounts
+- **Growth Tracking**: Weight, height, and head circumference with imperial/metric support
+- **Temperature Tracking**: Body temperature logging with C/F conversion and fever status
+- **Activity Tracking**: Bath, tummy time, outdoor play, screen time, and more with timer support
+- **Medicine Tracking**: Log medicine doses with custom medicines and dosage tracking
 - **Multi-Caregiver Support**: Share access with family members and caregivers
 - **Real-time Sync**: Changes sync instantly across all devices
 - **Multiple Report Views**: Day view, week view, and list view for activity history
@@ -134,7 +139,7 @@ EMAIL_SERVER="smtps://you@gmail.com:app-password@smtp.gmail.com:465"
 
 4. Enable Realtime for tables (optional, for real-time sync):
    - Go to Database → Replication
-   - Enable replication for: `sleep_records`, `feeding_records`, `diaper_records`
+   - Enable replication for: `sleep_records`, `feeding_records`, `diaper_records`, `pumping_records`, `growth_records`, `activity_records`, `temperature_records`, `medicine_records`
 
 ## Database Commands
 
