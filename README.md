@@ -5,10 +5,13 @@ An open-source baby tracking app with MCP (Model Context Protocol) integration.
 ## Features
 
 - **Sleep Tracking**: Timer-based tracking for naps and night sleep with quality ratings
-- **Feeding Tracking**: Breastfeeding (with side tracking), bottle (with amounts), and solids
-- **Diaper Tracking**: Wet, dirty, or both with optional color/consistency
+- **Feeding Tracking**: Breastfeeding with per-side duration tracking and side switching, bottle (with amounts), and solids
+- **Diaper Tracking**: Wet, dirty, or both with optional color/consistency/amount
 - **Multi-Caregiver Support**: Share access with family members and caregivers
 - **Real-time Sync**: Changes sync instantly across all devices
+- **Multiple Report Views**: Day view, week view, and list view for activity history
+- **Visual Timeline**: Daily activity timeline with visual representation
+- **Activity Editing**: Edit logged activities with duration sliders and detailed controls
 - **MCP Integration**: AI agent integration for logging and analyzing baby data
 
 ## Tech Stack
@@ -63,14 +66,10 @@ finnberry/
 
 3. Set up environment variables:
    ```bash
-   cp .env.example .env
+   cp apps/web/.env.example apps/web/.env
    ```
 
-4. Configure your `.env` file with:
-   - `DATABASE_URL` - Your Supabase PostgreSQL connection string
-   - `NEXTAUTH_SECRET` - Generate with `openssl rand -base64 32`
-   - Google OAuth credentials (optional)
-   - Email server settings (optional)
+4. Configure your `apps/web/.env` file (see [Environment Variables](#environment-variables) below)
 
 5. Generate Prisma client and push schema:
    ```bash
@@ -84,6 +83,67 @@ finnberry/
    ```
 
 The app will be available at `http://localhost:3000`.
+
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Supabase PostgreSQL pooler connection string |
+| `DIRECT_URL` | Direct PostgreSQL connection (for migrations) |
+| `AUTH_SECRET` | NextAuth secret - generate with `openssl rand -base64 32` |
+
+### Optional
+
+| Variable | Description |
+|----------|-------------|
+| `NEXTAUTH_URL` | App URL - required for production, auto-detected in dev |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (for realtime) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side access) |
+| `EMAIL_SERVER` | SMTP connection string for magic link emails |
+| `EMAIL_FROM` | Sender email address for magic links |
+
+### Email Configuration
+
+For magic link authentication, configure `EMAIL_SERVER` with your SMTP provider:
+
+```bash
+# Resend
+EMAIL_SERVER="smtps://resend:re_YOUR_API_KEY@smtp.resend.com:465"
+
+# Gmail (requires app password)
+EMAIL_SERVER="smtps://you@gmail.com:app-password@smtp.gmail.com:465"
+```
+
+## Supabase Setup
+
+1. Create a new project at [supabase.com](https://supabase.com)
+
+2. Get your connection strings from Project Settings → Database:
+   - **Connection string (pooler)** → `DATABASE_URL`
+   - **Connection string (direct)** → `DIRECT_URL`
+
+3. Get API keys from Project Settings → API:
+   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
+   - **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - **service_role** → `SUPABASE_SERVICE_ROLE_KEY`
+
+4. Enable Realtime for tables (optional, for real-time sync):
+   - Go to Database → Replication
+   - Enable replication for: `sleep_records`, `feeding_records`, `diaper_records`
+
+## Database Commands
+
+| Command | Use Case |
+|---------|----------|
+| `pnpm db:push` | Development - quick schema sync, no migration files |
+| `pnpm db:migrate` | Production - creates migration history |
+| `pnpm db:generate` | Regenerate Prisma client after schema changes |
+| `pnpm db:studio` | Open Prisma Studio to browse data |
 
 ### Accessing from Other Devices
 
@@ -200,6 +260,16 @@ pnpm build
 | `pnpm db:generate` | Generate Prisma client |
 | `pnpm db:push` | Push schema to database |
 | `pnpm db:migrate` | Run database migrations |
+
+## Testing
+
+```bash
+pnpm test           # Run all tests (Vitest)
+pnpm test:e2e       # Run Playwright E2E tests (requires dev server)
+pnpm test:coverage  # Run tests with coverage report
+```
+
+See `CLAUDE.md` for detailed testing documentation.
 
 ## License
 

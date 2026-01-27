@@ -33,8 +33,9 @@ finnberry/
 │   │   │   │   └── api/         # API routes (tRPC, NextAuth, test/seed)
 │   │   │   ├── components/
 │   │   │   │   ├── ui/          # shadcn/ui components
-│   │   │   │   ├── tracking/    # Sleep, feeding, diaper components
-│   │   │   │   └── dashboard/   # Dashboard layout components
+│   │   │   │   ├── tracking/    # Sleep, feeding, diaper, timer components
+│   │   │   │   ├── reports/     # Day/week/list views, activity rows, timeline
+│   │   │   │   └── dashboard/   # Dashboard layout, child selector
 │   │   │   ├── hooks/           # React hooks (use-timer, use-toast, use-realtime)
 │   │   │   ├── lib/             # Config (auth, trpc, supabase, utils)
 │   │   │   └── stores/          # Zustand stores (timer-store)
@@ -49,14 +50,14 @@ finnberry/
 │
 ├── packages/
 │   ├── db/                      # Prisma schema + client
-│   │   ├── prisma/schema.prisma # Database schema (13 models)
+│   │   ├── prisma/schema.prisma # Database schema (16 models)
 │   │   └── src/index.ts         # Prisma client singleton
 │   │
 │   ├── api/                     # tRPC routers
 │   │   └── src/
 │   │       ├── trpc.ts          # tRPC context, procedures, middleware
 │   │       ├── root.ts          # Root router combining all routers
-│   │       └── routers/         # Individual routers (9 total)
+│   │       └── routers/         # Individual routers (11 total)
 │   │
 │   ├── schemas/                 # Shared Zod validation schemas
 │   │   └── src/                 # One file per domain (sleep, feeding, etc.)
@@ -64,7 +65,8 @@ finnberry/
 │   └── utils/                   # Shared utilities
 │       └── src/
 │           ├── date.ts          # Date formatting, ranges, duration calc
-│           └── format.ts        # ML, weight, height formatters
+│           ├── format.ts        # ML, weight, height formatters
+│           └── timeline.ts      # Timeline data utilities
 │
 └── Configuration files
 ```
@@ -198,6 +200,8 @@ Timers persist in localStorage via Zustand (`apps/web/src/stores/timer-store.ts`
 - Start timer → store in Zustand + create DB record
 - Stop timer → remove from Zustand + update DB record with endTime
 - Page refresh → timers restored from localStorage
+- Breastfeeding timers support per-side duration tracking (leftDurationSeconds, rightDurationSeconds)
+- Side switching during active breastfeeding timer
 
 ### Real-time Sync
 
@@ -271,7 +275,7 @@ Branch naming conventions:
 
 Create `.env` in `apps/web/` (see `apps/web/.env.example`):
 ```
-DATABASE_URL=            # Supabase PostgreSQL connection
+DATABASE_URL=            # Supabase PostgreSQL pooler connection
 DIRECT_URL=              # Direct connection (for migrations)
 AUTH_SECRET=             # Generate with: openssl rand -base64 32
 
@@ -281,6 +285,9 @@ GOOGLE_CLIENT_ID=        # For Google OAuth
 GOOGLE_CLIENT_SECRET=
 NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=  # Server-side Supabase access
+EMAIL_SERVER=            # SMTP connection string for magic links
+EMAIL_FROM=              # Sender email address
 ```
 
 ## Testing the MCP Server
