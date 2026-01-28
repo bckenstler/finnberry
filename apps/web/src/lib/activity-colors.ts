@@ -9,6 +9,10 @@ export type ActivityCategory =
   | "bottle"
   | "solids"
   | "diaper"
+  | "diaperWet"
+  | "diaperDirty"
+  | "diaperBoth"
+  | "diaperDry"
   | "pumping"
   | "medicine"
   | "growth"
@@ -76,6 +80,46 @@ export const activityColors: Record<ActivityCategory, ActivityColorConfig> = {
     borderDark: "dark:border-yellow-400",
     icon: "text-yellow-600",
     iconDark: "dark:text-yellow-400",
+  },
+  diaperWet: {
+    bg: "bg-yellow-400",
+    bgDark: "dark:bg-yellow-500",
+    text: "text-yellow-900",
+    textDark: "dark:text-yellow-900",
+    border: "border-yellow-500",
+    borderDark: "dark:border-yellow-400",
+    icon: "text-yellow-600",
+    iconDark: "dark:text-yellow-400",
+  },
+  diaperDirty: {
+    bg: "bg-amber-700",
+    bgDark: "dark:bg-amber-600",
+    text: "text-white",
+    textDark: "dark:text-white",
+    border: "border-amber-800",
+    borderDark: "dark:border-amber-500",
+    icon: "text-amber-700",
+    iconDark: "dark:text-amber-500",
+  },
+  diaperBoth: {
+    bg: "bg-stone-500",
+    bgDark: "dark:bg-stone-400",
+    text: "text-white",
+    textDark: "dark:text-stone-900",
+    border: "border-stone-600",
+    borderDark: "dark:border-stone-300",
+    icon: "text-stone-600",
+    iconDark: "dark:text-stone-400",
+  },
+  diaperDry: {
+    bg: "bg-slate-300",
+    bgDark: "dark:bg-slate-500",
+    text: "text-slate-900",
+    textDark: "dark:text-white",
+    border: "border-slate-400",
+    borderDark: "dark:border-slate-400",
+    icon: "text-slate-500",
+    iconDark: "dark:text-slate-400",
   },
   pumping: {
     bg: "bg-purple-500",
@@ -166,5 +210,23 @@ export function feedingTypeToCategory(
       return "bottle";
     case "SOLIDS":
       return "solids";
+  }
+}
+
+/**
+ * Map diaper types to activity categories for color-coding
+ */
+export function diaperTypeToCategory(
+  diaperType: "WET" | "DIRTY" | "BOTH" | "DRY"
+): ActivityCategory {
+  switch (diaperType) {
+    case "WET":
+      return "diaperWet";
+    case "DIRTY":
+      return "diaperDirty";
+    case "BOTH":
+      return "diaperBoth";
+    case "DRY":
+      return "diaperDry";
   }
 }

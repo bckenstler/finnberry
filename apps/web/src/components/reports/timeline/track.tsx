@@ -9,6 +9,7 @@ import {
 import {
   getActivityBarClasses,
   feedingTypeToCategory,
+  diaperTypeToCategory,
   type ActivityCategory,
 } from "@/lib/activity-colors";
 import { Moon, Baby, Milk, Utensils, HeartPulse, Pill, Ruler, Thermometer, Sparkles } from "lucide-react";
@@ -219,12 +220,16 @@ export function TimelineTrack({
             ? "Mixed"
             : "Dry";
 
+    const category = diaperTypeToCategory(
+      record.diaperType as "WET" | "DIRTY" | "BOTH" | "DRY"
+    );
+
     events.push({
       id: `diaper-${record.id}`,
       recordId: record.id,
       recordType: "DIAPER",
       record,
-      category: "diaper",
+      category,
       startPos: pos,
       endPos: pos + 0.25, // 15min display width
       label,
