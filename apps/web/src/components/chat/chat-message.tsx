@@ -77,7 +77,7 @@ export function ChatMessage({
                       key={`text-${index}`}
                       className="rounded-2xl px-4 py-2 bg-muted text-foreground"
                     >
-                      <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
+                      <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground">
                         <Markdown>{block.text}</Markdown>
                         {isStreaming && index === contentBlocks.length - 1 && (
                           <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
@@ -102,7 +102,7 @@ export function ChatMessage({
             ) : content ? (
               // Fallback for simple content
               <div className="rounded-2xl px-4 py-2 bg-muted text-foreground">
-                <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2">
+                <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground">
                   <Markdown>{content}</Markdown>
                   {isStreaming && (
                     <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
