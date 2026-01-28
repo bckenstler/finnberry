@@ -1,9 +1,34 @@
 "use client";
 
 import { User, Bot } from "lucide-react";
-import Markdown from "react-markdown";
+import Markdown, { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { ToolExecution } from "./tool-execution";
+
+// Custom table components for proper rendering
+const markdownComponents: Components = {
+  table: ({ children }) => (
+    <div className="overflow-x-auto my-2">
+      <table className="min-w-full border-collapse text-sm">{children}</table>
+    </div>
+  ),
+  thead: ({ children }) => (
+    <thead className="border-b border-border">{children}</thead>
+  ),
+  tbody: ({ children }) => <tbody>{children}</tbody>,
+  tr: ({ children }) => (
+    <tr className="border-b border-border last:border-b-0">{children}</tr>
+  ),
+  th: ({ children }) => (
+    <th className="px-3 py-2 text-left font-semibold text-foreground">
+      {children}
+    </th>
+  ),
+  td: ({ children }) => (
+    <td className="px-3 py-2 text-foreground">{children}</td>
+  ),
+};
 
 export interface ToolCall {
   id: string;
@@ -78,7 +103,12 @@ export function ChatMessage({
                       className="rounded-2xl px-4 py-2 bg-muted text-foreground"
                     >
                       <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground prose-code:text-primary">
-                        <Markdown>{block.text}</Markdown>
+                        <Markdown
+                          remarkPlugins={[remarkGfm]}
+                          components={markdownComponents}
+                        >
+                          {block.text}
+                        </Markdown>
                         {isStreaming && index === contentBlocks.length - 1 && (
                           <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
                         )}
@@ -103,7 +133,12 @@ export function ChatMessage({
               // Fallback for simple content
               <div className="rounded-2xl px-4 py-2 bg-muted text-foreground">
                 <div className="prose prose-sm dark:prose-invert max-w-none font-sans prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0 prose-headings:my-2 prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-headings:text-foreground prose-code:text-primary">
-                  <Markdown>{content}</Markdown>
+                  <Markdown
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {content}
+                  </Markdown>
                   {isStreaming && (
                     <span className="inline-block w-2 h-4 ml-0.5 bg-current animate-pulse" />
                   )}
