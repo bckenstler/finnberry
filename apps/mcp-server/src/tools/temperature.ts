@@ -1,5 +1,12 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, formatTime, formatTemperature } from "@finnberry/utils";
+import {
+  parseQueryDates,
+  sanitizeLimit,
+  sanitizeOffset,
+  buildQueryResponse,
+  type QueryInput,
+} from "./query-helpers.js";
 
 export async function handleTemperatureTools(
   name: string,
@@ -126,6 +133,84 @@ export async function handleTemperatureTools(
             : null,
         notes: latestRecord.notes,
       };
+    }
+
+    case "query-temperature-records": {
+      const {
+        childId,
+        startDate,
+        endDate,
+        limit,
+        offset,
+        orderBy = "desc",
+        includeSummary = false,
+        feverOnly = false,
+      } = args as unknown as QueryInput & {
+        feverOnly?: boolean;
+      };
+
+      const { start, end } = parseQueryDates(startDate, endDate);
+      const safeLimit = sanitizeLimit(limit);
+      const safeOffset = sanitizeOffset(offset);
+
+      const where = {
+        childId,
+        time: { gte: start, lte: end },
+        ...(feverOnly ? { temperatureCelsius: { gte: 38.0 } } : {}),
+      };
+
+      const [total, records] = await Promise.all([
+        prisma.temperatureRecord.count({ where }),
+        prisma.temperatureRecord.findMany({
+          where,
+          orderBy: { time: orderBy },
+          skip: safeOffset,
+          take: safeLimit,
+        }),
+      ]);
+
+      // Build summary if requested
+      let summary;
+      if (includeSummary) {
+        const temperatures = records.map((r) => r.temperatureCelsius);
+        const avgTemp = temperatures.length > 0
+          ? temperatures.reduce((a, b) => a + b, 0) / temperatures.length
+          : null;
+        const maxTemp = temperatures.length > 0 ? Math.max(...temperatures) : null;
+        const minTemp = temperatures.length > 0 ? Math.min(...temperatures) : null;
+        const feverCount = records.filter((r) => r.temperatureCelsius >= 38.0).length;
+        const lowCount = records.filter((r) => r.temperatureCelsius < 36.0).length;
+
+        summary = {
+          totalRecords: records.length,
+          averageTemperature: avgTemp ? Number(avgTemp.toFixed(1)) : null,
+          averageFormatted: avgTemp ? formatTemperature(avgTemp) : null,
+          maxTemperature: maxTemp,
+          maxFormatted: maxTemp ? formatTemperature(maxTemp) : null,
+          minTemperature: minTemp,
+          minFormatted: minTemp ? formatTemperature(minTemp) : null,
+          feverReadings: feverCount,
+          lowReadings: lowCount,
+          normalReadings: records.length - feverCount - lowCount,
+        };
+      }
+
+      // Map records to output format
+      const mappedRecords = records.map((r) => ({
+        id: r.id,
+        childId: r.childId,
+        temperatureCelsius: r.temperatureCelsius,
+        temperatureFormatted: formatTemperature(r.temperatureCelsius),
+        time: r.time.toISOString(),
+        formattedTime: formatTime(r.time),
+        isFever: r.temperatureCelsius >= 38.0,
+        isLow: r.temperatureCelsius < 36.0,
+        notes: r.notes,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
+
+      return buildQueryResponse(mappedRecords, total, safeLimit, safeOffset, start, end, summary);
     }
 
     default:

@@ -1,5 +1,12 @@
 import type { PrismaClient } from "@finnberry/db";
 import { formatWeight, formatHeight } from "@finnberry/utils";
+import {
+  parseQueryDates,
+  sanitizeLimit,
+  sanitizeOffset,
+  buildQueryResponse,
+  type QueryInput,
+} from "./query-helpers.js";
 
 export async function handleGrowthTools(
   name: string,
@@ -136,6 +143,95 @@ export async function handleGrowthTools(
         },
         previousDate: previousRecord?.date.toISOString().split("T")[0] ?? null,
       };
+    }
+
+    case "query-growth-records": {
+      const {
+        childId,
+        startDate,
+        endDate,
+        limit,
+        offset,
+        orderBy = "desc",
+        includeSummary = false,
+      } = args as unknown as QueryInput;
+
+      const { start, end } = parseQueryDates(startDate, endDate);
+      const safeLimit = sanitizeLimit(limit);
+      const safeOffset = sanitizeOffset(offset);
+
+      const where = {
+        childId,
+        date: { gte: start, lte: end },
+      };
+
+      const [total, records] = await Promise.all([
+        prisma.growthRecord.count({ where }),
+        prisma.growthRecord.findMany({
+          where,
+          orderBy: { date: orderBy },
+          skip: safeOffset,
+          take: safeLimit,
+        }),
+      ]);
+
+      // Build summary if requested
+      let summary;
+      if (includeSummary && records.length > 0) {
+        const weights = records.filter((r) => r.weightKg !== null).map((r) => r.weightKg!);
+        const heights = records.filter((r) => r.heightCm !== null).map((r) => r.heightCm!);
+        const headCircs = records.filter((r) => r.headCircumferenceCm !== null).map((r) => r.headCircumferenceCm!);
+
+        // Calculate growth between first and last record in range
+        const sortedByDate = [...records].sort((a, b) => a.date.getTime() - b.date.getTime());
+        const earliest = sortedByDate[0]!;
+        const latest = sortedByDate[sortedByDate.length - 1]!;
+
+        const weightChange = earliest.weightKg && latest.weightKg
+          ? Number((latest.weightKg - earliest.weightKg).toFixed(2))
+          : null;
+        const heightChange = earliest.heightCm && latest.heightCm
+          ? Number((latest.heightCm - earliest.heightCm).toFixed(1))
+          : null;
+
+        summary = {
+          totalRecords: records.length,
+          weight: {
+            recordCount: weights.length,
+            min: weights.length > 0 ? Math.min(...weights) : null,
+            max: weights.length > 0 ? Math.max(...weights) : null,
+            change: weightChange,
+          },
+          height: {
+            recordCount: heights.length,
+            min: heights.length > 0 ? Math.min(...heights) : null,
+            max: heights.length > 0 ? Math.max(...heights) : null,
+            change: heightChange,
+          },
+          headCircumference: {
+            recordCount: headCircs.length,
+            min: headCircs.length > 0 ? Math.min(...headCircs) : null,
+            max: headCircs.length > 0 ? Math.max(...headCircs) : null,
+          },
+        };
+      }
+
+      // Map records to output format
+      const mappedRecords = records.map((r) => ({
+        id: r.id,
+        childId: r.childId,
+        date: r.date.toISOString().split("T")[0],
+        weightKg: r.weightKg,
+        weightFormatted: r.weightKg ? formatWeight(r.weightKg) : null,
+        heightCm: r.heightCm,
+        heightFormatted: r.heightCm ? formatHeight(r.heightCm) : null,
+        headCircumferenceCm: r.headCircumferenceCm,
+        notes: r.notes,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
+
+      return buildQueryResponse(mappedRecords, total, safeLimit, safeOffset, start, end, summary);
     }
 
     default:
