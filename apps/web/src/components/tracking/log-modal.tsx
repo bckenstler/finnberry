@@ -947,6 +947,8 @@ function PumpingModal({ childId, onClose }: { childId: string; onClose: () => vo
   const utils = trpc.useUtils();
   const pumpingTimer = useTimer(childId, "pumping");
   const stopTimer = useTimerStore((state) => state.stopTimer);
+  const startTimerStore = useTimerStore((state) => state.startTimer);
+  const updateTimerStore = useTimerStore((state) => state.updateTimer);
 
   const [startTime, setStartTime] = useState<Date | null>(new Date());
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -955,6 +957,22 @@ function PumpingModal({ childId, onClose }: { childId: string; onClose: () => vo
   const [leftAmountOz, setLeftAmountOz] = useState(0.25);
   const [rightAmountOz, setRightAmountOz] = useState(0.25);
   const [notes, setNotes] = useState("");
+
+  // Query for active pumping in database (started via MCP/chat)
+  const { data: activePumping } = trpc.pumping.getActive.useQuery({ childId });
+
+  // Sync local timer with database if there's an active session but no local timer
+  useEffect(() => {
+    if (activePumping && !pumpingTimer.isRunning) {
+      // Create local timer from database record
+      const timerId = startTimerStore({
+        type: "pumping",
+        childId,
+        startTime: new Date(activePumping.startTime).getTime(),
+      });
+      updateTimerStore(timerId, { recordId: activePumping.id });
+    }
+  }, [activePumping, pumpingTimer.isRunning, childId, startTimerStore, updateTimerStore]);
 
   const startPumping = trpc.pumping.start.useMutation({
     onSuccess: (result) => {

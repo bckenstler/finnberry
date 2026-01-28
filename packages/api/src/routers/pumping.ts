@@ -7,6 +7,7 @@ import {
   deletePumpingSchema,
   getPumpingRecordsSchema,
   pumpingSummarySchema,
+  getActivePumpingSchema,
 } from "@finnberry/schemas";
 import { getDateRange, calculateDurationMinutes } from "@finnberry/utils";
 import { createTRPCRouter, householdProcedure } from "../trpc";
@@ -165,5 +166,20 @@ export const pumpingRouter = createTRPCRouter({
         totalMl,
         averageMl: records.length > 0 ? totalMl / records.length : 0,
       };
+    }),
+
+  getActive: householdProcedure
+    .input(getActivePumpingSchema)
+    .query(async ({ ctx, input }) => {
+      // Find active pumping session (no end time)
+      const activePumping = await ctx.prisma.pumpingRecord.findFirst({
+        where: {
+          childId: input.childId,
+          endTime: null,
+        },
+        orderBy: { startTime: "desc" },
+      });
+
+      return activePumping;
     }),
 });

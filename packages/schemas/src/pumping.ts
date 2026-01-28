@@ -54,3 +54,8 @@ export const pumpingSummarySchema = z.object({
   period: periodSchema.default("today"),
 });
 export type PumpingSummaryInput = z.infer<typeof pumpingSummarySchema>;
+
+export const getActivePumpingSchema = z.object({
+  childId: idSchema,
+});
+export type GetActivePumpingInput = z.infer<typeof getActivePumpingSchema>;
