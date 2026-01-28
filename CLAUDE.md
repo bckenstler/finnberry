@@ -252,26 +252,50 @@ Key models in `packages/db/prisma/schema.prisma`:
 
 ## Git Workflow
 
-**IMPORTANT: Always create a new branch for bug fixes and new features. Never work directly on main.**
+**CRITICAL: Never commit directly to main. All work must happen on feature/fix branches.**
+
+### Before Starting Any Work
+
+1. Check current branch: `git branch --show-current`
+2. If on `main`, create and switch to a new branch BEFORE making any changes:
+   ```bash
+   # For bug fixes
+   git checkout -b fix/descriptive-name
+
+   # For new features
+   git checkout -b feature/descriptive-name
+
+   # For refactoring
+   git checkout -b refactor/descriptive-name
+
+   # For documentation
+   git checkout -b docs/descriptive-name
+   ```
+
+### After Completing Work
 
 ```bash
-# For bug fixes
-git checkout -b fix/descriptive-name
-
-# For new features
-git checkout -b feature/descriptive-name
-
-# After completing work
 git push -u origin <branch-name>
 gh pr create --fill
 # Then merge via GitHub PR
 ```
 
-Branch naming conventions:
+### Branch Naming Conventions
+
 - `fix/` - Bug fixes (e.g., `fix/timer-stop-bug`)
-- `feature/` - New features (e.g., `feature/settings-pages`)
-- `refactor/` - Code refactoring
-- `docs/` - Documentation updates
+- `feature/` - New features (e.g., `feature/chat-interface`)
+- `refactor/` - Code refactoring (e.g., `refactor/timeline-queries`)
+- `docs/` - Documentation updates (e.g., `docs/update-readme`)
+
+### Enforcement
+
+If a user requests changes while on `main`:
+1. **Do not make any code changes yet**
+2. Create an appropriately named branch based on the request
+3. Switch to that branch
+4. Then proceed with the requested changes
+5. Commit and push to the new branch
+6. Create a PR for review
 
 ## Conventions
 
