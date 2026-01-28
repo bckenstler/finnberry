@@ -16,6 +16,7 @@ import {
 import {
   getActivityBarClasses,
   feedingTypeToCategory,
+  diaperTypeToCategory,
 } from "@/lib/activity-colors";
 
 interface WeekViewProps {
@@ -162,11 +163,14 @@ export function WeekView({ childId }: WeekViewProps) {
                           DAY_START_HOUR
                         );
                         const top = (pos / 24) * 100;
+                        const category = diaperTypeToCategory(
+                          record.diaperType as "WET" | "DIRTY" | "BOTH" | "DRY"
+                        );
 
                         return (
                           <div
                             key={record.id}
-                            className={`absolute left-1 right-1 h-1.5 rounded-sm ${getActivityBarClasses("diaper")}`}
+                            className={`absolute left-1 right-1 h-1.5 rounded-sm ${getActivityBarClasses(category)}`}
                             style={{ top: `${top}%` }}
                           />
                         );
