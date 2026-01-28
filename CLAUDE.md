@@ -81,6 +81,11 @@ pnpm build                  # Build all packages and apps
 pnpm lint                   # Run ESLint across all packages
 pnpm type-check             # Run TypeScript checks
 
+# Fresh worktree/clone setup
+# The web app imports from @finnberry/mcp-server/tools which requires the dist folder.
+# On a fresh clone or worktree, build the MCP server first:
+pnpm --filter @finnberry/mcp-server build
+
 # Database
 pnpm db:generate            # Generate Prisma client
 pnpm db:push                # Push schema to database (no migration)
