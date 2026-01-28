@@ -23,6 +23,13 @@ describe("timelineRouter", () => {
     prismaMock.householdMember.findUnique.mockResolvedValue(
       createTestMembership({ role: "CAREGIVER" }) as never
     );
+
+    // Setup default empty arrays for all record types used in timeline queries
+    prismaMock.pumpingRecord.findMany.mockResolvedValue([]);
+    prismaMock.medicineRecord.findMany.mockResolvedValue([]);
+    prismaMock.growthRecord.findMany.mockResolvedValue([]);
+    prismaMock.temperatureRecord.findMany.mockResolvedValue([]);
+    prismaMock.activityRecord.findMany.mockResolvedValue([]);
   });
 
   describe("getLastActivities", () => {
