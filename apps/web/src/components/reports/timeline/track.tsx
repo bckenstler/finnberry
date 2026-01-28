@@ -11,7 +11,7 @@ import {
   feedingTypeToCategory,
   type ActivityCategory,
 } from "@/lib/activity-colors";
-import { Moon, Baby, Milk, Utensils } from "lucide-react";
+import { Moon, Baby, Milk, Utensils, HeartPulse, Pill, Ruler, Thermometer, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 // Custom diaper icon component
@@ -55,23 +55,68 @@ interface DiaperRecord {
   diaperType: string;
 }
 
-export type RecordType = "SLEEP" | "FEEDING" | "DIAPER";
-export type { SleepRecord, FeedingRecord, DiaperRecord };
+interface PumpingRecord {
+  id: string;
+  startTime: Date;
+  endTime: Date | null;
+  amountMl?: number | null;
+}
+
+interface MedicineRecord {
+  id: string;
+  time: Date;
+  dosageGiven?: string | null;
+  medicine: {
+    id: string;
+    name: string;
+    defaultDosage?: string | null;
+  };
+}
+
+interface GrowthRecord {
+  id: string;
+  date: Date;
+  weightKg?: number | null;
+  heightCm?: number | null;
+}
+
+interface TemperatureRecord {
+  id: string;
+  time: Date;
+  temperatureCelsius: number;
+}
+
+interface ActivityRecord {
+  id: string;
+  startTime: Date;
+  endTime: Date | null;
+  activityType: string;
+}
+
+export type RecordType = "SLEEP" | "FEEDING" | "DIAPER" | "PUMPING" | "MEDICINE" | "GROWTH" | "TEMPERATURE" | "ACTIVITY";
+export type { SleepRecord, FeedingRecord, DiaperRecord, PumpingRecord, MedicineRecord, GrowthRecord, TemperatureRecord, ActivityRecord };
+
+type AnyRecord = SleepRecord | FeedingRecord | DiaperRecord | PumpingRecord | MedicineRecord | GrowthRecord | TemperatureRecord | ActivityRecord;
 
 interface TimelineTrackProps {
   sleepRecords: SleepRecord[];
   feedingRecords: FeedingRecord[];
   diaperRecords: DiaperRecord[];
+  pumpingRecords?: PumpingRecord[];
+  medicineRecords?: MedicineRecord[];
+  growthRecords?: GrowthRecord[];
+  temperatureRecords?: TemperatureRecord[];
+  activityRecords?: ActivityRecord[];
   dayStart: Date;
   selectedDate?: Date;
-  onEventClick?: (recordId: string, recordType: RecordType, record: SleepRecord | FeedingRecord | DiaperRecord) => void;
+  onEventClick?: (recordId: string, recordType: RecordType, record: AnyRecord) => void;
 }
 
 interface TimelineEvent {
   id: string;
   recordId: string; // Actual record ID for editing
   recordType: RecordType;
-  record: SleepRecord | FeedingRecord | DiaperRecord;
+  record: AnyRecord;
   category: ActivityCategory;
   startPos: number; // 0-24 position
   endPos: number; // 0-24 position
@@ -85,6 +130,11 @@ export function TimelineTrack({
   sleepRecords,
   feedingRecords,
   diaperRecords,
+  pumpingRecords = [],
+  medicineRecords = [],
+  growthRecords = [],
+  temperatureRecords = [],
+  activityRecords = [],
   selectedDate,
   onEventClick,
 }: TimelineTrackProps) {
@@ -179,6 +229,116 @@ export function TimelineTrack({
       endPos: pos + 0.25, // 15min display width
       label,
       icon: DiaperIcon,
+    });
+  });
+
+  // Add pumping events
+  pumpingRecords.forEach((record) => {
+    const startPos = normalizeToTimelinePosition(record.startTime, DAY_START_HOUR);
+    const endTime = record.endTime || new Date();
+    const endPos = normalizeToTimelinePosition(endTime, DAY_START_HOUR);
+    const duration = formatDurationPrecise(record.startTime, endTime);
+
+    let label = "Pump";
+    if (record.amountMl) {
+      label = `${Math.round(record.amountMl / 29.574)}oz`;
+    }
+
+    events.push({
+      id: `pumping-${record.id}`,
+      recordId: record.id,
+      recordType: "PUMPING",
+      record,
+      category: "pumping",
+      startPos,
+      endPos: Math.max(endPos, startPos + 0.25),
+      label,
+      duration,
+      icon: HeartPulse,
+    });
+  });
+
+  // Add medicine events (point events)
+  medicineRecords.forEach((record) => {
+    const pos = normalizeToTimelinePosition(record.time, DAY_START_HOUR);
+
+    events.push({
+      id: `medicine-${record.id}`,
+      recordId: record.id,
+      recordType: "MEDICINE",
+      record,
+      category: "medicine",
+      startPos: pos,
+      endPos: pos + 0.25,
+      label: record.medicine.name,
+      icon: Pill,
+    });
+  });
+
+  // Add growth events (point events)
+  growthRecords.forEach((record) => {
+    const pos = normalizeToTimelinePosition(record.date, DAY_START_HOUR);
+
+    let label = "Growth";
+    if (record.weightKg) {
+      const lbs = record.weightKg * 2.20462;
+      label = `${lbs.toFixed(1)}lbs`;
+    }
+
+    events.push({
+      id: `growth-${record.id}`,
+      recordId: record.id,
+      recordType: "GROWTH",
+      record,
+      category: "growth",
+      startPos: pos,
+      endPos: pos + 0.25,
+      label,
+      icon: Ruler,
+    });
+  });
+
+  // Add temperature events (point events)
+  temperatureRecords.forEach((record) => {
+    const pos = normalizeToTimelinePosition(record.time, DAY_START_HOUR);
+    const fahrenheit = record.temperatureCelsius * 9 / 5 + 32;
+
+    events.push({
+      id: `temperature-${record.id}`,
+      recordId: record.id,
+      recordType: "TEMPERATURE",
+      record,
+      category: "temperature",
+      startPos: pos,
+      endPos: pos + 0.25,
+      label: `${fahrenheit.toFixed(1)}°F`,
+      icon: Thermometer,
+    });
+  });
+
+  // Add activity events
+  activityRecords.forEach((record) => {
+    const startPos = normalizeToTimelinePosition(record.startTime, DAY_START_HOUR);
+    const endTime = record.endTime || new Date();
+    const endPos = normalizeToTimelinePosition(endTime, DAY_START_HOUR);
+    const duration = record.endTime ? formatDurationPrecise(record.startTime, record.endTime) : undefined;
+
+    const label = record.activityType
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+
+    events.push({
+      id: `activity-${record.id}`,
+      recordId: record.id,
+      recordType: "ACTIVITY",
+      record,
+      category: "activity",
+      startPos,
+      endPos: Math.max(endPos, startPos + 0.25),
+      label,
+      duration,
+      icon: Sparkles,
     });
   });
 

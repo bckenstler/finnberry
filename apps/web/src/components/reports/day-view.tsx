@@ -11,6 +11,11 @@ import {
   type SleepRecord,
   type FeedingRecord,
   type DiaperRecord,
+  type PumpingRecord,
+  type MedicineRecord,
+  type GrowthRecord,
+  type TemperatureRecord,
+  type ActivityRecord,
 } from "@/components/reports/timeline/track";
 import { ActivityRow } from "@/components/reports/activity-row";
 
@@ -21,7 +26,12 @@ interface DayViewProps {
 type Activity =
   | { type: "SLEEP"; record: SleepRecord; time: Date }
   | { type: "FEEDING"; record: FeedingRecord; time: Date }
-  | { type: "DIAPER"; record: DiaperRecord; time: Date };
+  | { type: "DIAPER"; record: DiaperRecord; time: Date }
+  | { type: "PUMPING"; record: PumpingRecord; time: Date }
+  | { type: "MEDICINE"; record: MedicineRecord; time: Date }
+  | { type: "GROWTH"; record: GrowthRecord; time: Date }
+  | { type: "TEMPERATURE"; record: TemperatureRecord; time: Date }
+  | { type: "ACTIVITY"; record: ActivityRecord; time: Date };
 
 export function DayView({ childId }: DayViewProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -38,7 +48,7 @@ export function DayView({ childId }: DayViewProps) {
   const handleEventClick = (
     recordId: string,
     recordType: RecordType,
-    record: SleepRecord | FeedingRecord | DiaperRecord
+    record: SleepRecord | FeedingRecord | DiaperRecord | PumpingRecord | MedicineRecord | GrowthRecord | TemperatureRecord | ActivityRecord
   ) => {
     // Create activity object matching ActivityRow's expected format
     if (recordType === "SLEEP") {
@@ -61,6 +71,41 @@ export function DayView({ childId }: DayViewProps) {
         type: "DIAPER",
         record: diaperRecord,
         time: new Date(diaperRecord.time),
+      });
+    } else if (recordType === "PUMPING") {
+      const pumpingRecord = record as PumpingRecord;
+      setSelectedActivity({
+        type: "PUMPING",
+        record: pumpingRecord,
+        time: new Date(pumpingRecord.startTime),
+      });
+    } else if (recordType === "MEDICINE") {
+      const medicineRecord = record as MedicineRecord;
+      setSelectedActivity({
+        type: "MEDICINE",
+        record: medicineRecord,
+        time: new Date(medicineRecord.time),
+      });
+    } else if (recordType === "GROWTH") {
+      const growthRecord = record as GrowthRecord;
+      setSelectedActivity({
+        type: "GROWTH",
+        record: growthRecord,
+        time: new Date(growthRecord.date),
+      });
+    } else if (recordType === "TEMPERATURE") {
+      const temperatureRecord = record as TemperatureRecord;
+      setSelectedActivity({
+        type: "TEMPERATURE",
+        record: temperatureRecord,
+        time: new Date(temperatureRecord.time),
+      });
+    } else if (recordType === "ACTIVITY") {
+      const activityRecord = record as ActivityRecord;
+      setSelectedActivity({
+        type: "ACTIVITY",
+        record: activityRecord,
+        time: new Date(activityRecord.startTime),
       });
     }
   };
@@ -87,6 +132,11 @@ export function DayView({ childId }: DayViewProps) {
               sleepRecords={data.sleepRecords}
               feedingRecords={data.feedingRecords}
               diaperRecords={data.diaperRecords}
+              pumpingRecords={data.pumpingRecords}
+              medicineRecords={data.medicineRecords}
+              growthRecords={data.growthRecords}
+              temperatureRecords={data.temperatureRecords}
+              activityRecords={data.activityRecords}
               dayStart={data.dayStart}
               selectedDate={selectedDate}
               onEventClick={handleEventClick}

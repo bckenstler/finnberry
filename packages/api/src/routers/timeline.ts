@@ -183,7 +183,16 @@ export const timelineRouter = createTRPCRouter({
       const { start, end } = getTimelineDayBoundaries(input.date);
 
       // Fetch all activities for this day in parallel
-      const [sleepRecords, feedingRecords, diaperRecords] = await Promise.all([
+      const [
+        sleepRecords,
+        feedingRecords,
+        diaperRecords,
+        pumpingRecords,
+        medicineRecords,
+        growthRecords,
+        temperatureRecords,
+        activityRecords,
+      ] = await Promise.all([
         ctx.prisma.sleepRecord.findMany({
           where: {
             childId: input.childId,
@@ -214,6 +223,52 @@ export const timelineRouter = createTRPCRouter({
           },
           orderBy: { time: "asc" },
         }),
+        ctx.prisma.pumpingRecord.findMany({
+          where: {
+            childId: input.childId,
+            OR: [
+              { startTime: { gte: start, lt: end } },
+              { endTime: { gte: start, lt: end } },
+              { startTime: { lt: start }, endTime: { gte: end } },
+              { startTime: { lt: end }, endTime: null },
+            ],
+          },
+          orderBy: { startTime: "asc" },
+        }),
+        ctx.prisma.medicineRecord.findMany({
+          where: {
+            medicine: { childId: input.childId },
+            time: { gte: start, lt: end },
+          },
+          include: { medicine: true },
+          orderBy: { time: "asc" },
+        }),
+        ctx.prisma.growthRecord.findMany({
+          where: {
+            childId: input.childId,
+            date: { gte: start, lt: end },
+          },
+          orderBy: { date: "asc" },
+        }),
+        ctx.prisma.temperatureRecord.findMany({
+          where: {
+            childId: input.childId,
+            time: { gte: start, lt: end },
+          },
+          orderBy: { time: "asc" },
+        }),
+        ctx.prisma.activityRecord.findMany({
+          where: {
+            childId: input.childId,
+            OR: [
+              { startTime: { gte: start, lt: end } },
+              { endTime: { gte: start, lt: end } },
+              { startTime: { lt: start }, endTime: { gte: end } },
+              { startTime: { lt: end }, endTime: null },
+            ],
+          },
+          orderBy: { startTime: "asc" },
+        }),
       ]);
 
       return {
@@ -223,6 +278,11 @@ export const timelineRouter = createTRPCRouter({
         sleepRecords,
         feedingRecords,
         diaperRecords,
+        pumpingRecords,
+        medicineRecords,
+        growthRecords,
+        temperatureRecords,
+        activityRecords,
       };
     }),
 
@@ -237,7 +297,16 @@ export const timelineRouter = createTRPCRouter({
       const weekEnd = addDays(weekStart, 7);
 
       // Fetch all activities for the week in parallel
-      const [sleepRecords, feedingRecords, diaperRecords] = await Promise.all([
+      const [
+        sleepRecords,
+        feedingRecords,
+        diaperRecords,
+        pumpingRecords,
+        medicineRecords,
+        growthRecords,
+        temperatureRecords,
+        activityRecords,
+      ] = await Promise.all([
         ctx.prisma.sleepRecord.findMany({
           where: {
             childId: input.childId,
@@ -264,6 +333,52 @@ export const timelineRouter = createTRPCRouter({
           },
           orderBy: { time: "asc" },
         }),
+        ctx.prisma.pumpingRecord.findMany({
+          where: {
+            childId: input.childId,
+            OR: [
+              { startTime: { gte: weekStart, lt: weekEnd } },
+              { endTime: { gte: weekStart, lt: weekEnd } },
+              { startTime: { lt: weekStart }, endTime: { gte: weekEnd } },
+              { startTime: { lt: weekEnd }, endTime: null },
+            ],
+          },
+          orderBy: { startTime: "asc" },
+        }),
+        ctx.prisma.medicineRecord.findMany({
+          where: {
+            medicine: { childId: input.childId },
+            time: { gte: weekStart, lt: weekEnd },
+          },
+          include: { medicine: true },
+          orderBy: { time: "asc" },
+        }),
+        ctx.prisma.growthRecord.findMany({
+          where: {
+            childId: input.childId,
+            date: { gte: weekStart, lt: weekEnd },
+          },
+          orderBy: { date: "asc" },
+        }),
+        ctx.prisma.temperatureRecord.findMany({
+          where: {
+            childId: input.childId,
+            time: { gte: weekStart, lt: weekEnd },
+          },
+          orderBy: { time: "asc" },
+        }),
+        ctx.prisma.activityRecord.findMany({
+          where: {
+            childId: input.childId,
+            OR: [
+              { startTime: { gte: weekStart, lt: weekEnd } },
+              { endTime: { gte: weekStart, lt: weekEnd } },
+              { startTime: { lt: weekStart }, endTime: { gte: weekEnd } },
+              { startTime: { lt: weekEnd }, endTime: null },
+            ],
+          },
+          orderBy: { startTime: "asc" },
+        }),
       ]);
 
       // Organize by day
@@ -273,6 +388,11 @@ export const timelineRouter = createTRPCRouter({
         sleepRecords: typeof sleepRecords;
         feedingRecords: typeof feedingRecords;
         diaperRecords: typeof diaperRecords;
+        pumpingRecords: typeof pumpingRecords;
+        medicineRecords: typeof medicineRecords;
+        growthRecords: typeof growthRecords;
+        temperatureRecords: typeof temperatureRecords;
+        activityRecords: typeof activityRecords;
       }[] = [];
 
       for (let i = 0; i < 7; i++) {
@@ -299,12 +419,47 @@ export const timelineRouter = createTRPCRouter({
           (r) => r.time >= dayStart && r.time < dayEnd
         );
 
+        const dayPumping = pumpingRecords.filter((r) => {
+          const inRange =
+            (r.startTime >= dayStart && r.startTime < dayEnd) ||
+            (r.endTime && r.endTime >= dayStart && r.endTime < dayEnd) ||
+            (r.startTime < dayStart &&
+              ((r.endTime && r.endTime >= dayEnd) || !r.endTime));
+          return inRange;
+        });
+
+        const dayMedicine = medicineRecords.filter(
+          (r) => r.time >= dayStart && r.time < dayEnd
+        );
+
+        const dayGrowth = growthRecords.filter(
+          (r) => r.date >= dayStart && r.date < dayEnd
+        );
+
+        const dayTemperature = temperatureRecords.filter(
+          (r) => r.time >= dayStart && r.time < dayEnd
+        );
+
+        const dayActivity = activityRecords.filter((r) => {
+          const inRange =
+            (r.startTime >= dayStart && r.startTime < dayEnd) ||
+            (r.endTime && r.endTime >= dayStart && r.endTime < dayEnd) ||
+            (r.startTime < dayStart &&
+              ((r.endTime && r.endTime >= dayEnd) || !r.endTime));
+          return inRange;
+        });
+
         days.push({
           date: dateKey,
           dayStart,
           sleepRecords: daySleep,
           feedingRecords: dayFeeding,
           diaperRecords: dayDiaper,
+          pumpingRecords: dayPumping,
+          medicineRecords: dayMedicine,
+          growthRecords: dayGrowth,
+          temperatureRecords: dayTemperature,
+          activityRecords: dayActivity,
         });
       }
 

@@ -171,6 +171,117 @@ export function WeekView({ childId }: WeekViewProps) {
                           />
                         );
                       })}
+
+                      {/* Pumping bars */}
+                      {day.pumpingRecords?.map((record) => {
+                        const startPos = normalizeToTimelinePosition(
+                          record.startTime,
+                          DAY_START_HOUR
+                        );
+                        const endPos = record.endTime
+                          ? normalizeToTimelinePosition(
+                              record.endTime,
+                              DAY_START_HOUR
+                            )
+                          : normalizeToTimelinePosition(
+                              new Date(),
+                              DAY_START_HOUR
+                            );
+                        const top = (startPos / 24) * 100;
+                        const height = ((endPos - startPos) / 24) * 100;
+
+                        return (
+                          <div
+                            key={record.id}
+                            className={`absolute left-1 right-1 rounded-sm ${getActivityBarClasses("pumping")}`}
+                            style={{
+                              top: `${Math.max(0, top)}%`,
+                              height: `${Math.max(2, Math.min(height, 100 - top))}%`,
+                            }}
+                          />
+                        );
+                      })}
+
+                      {/* Medicine markers */}
+                      {day.medicineRecords?.map((record) => {
+                        const pos = normalizeToTimelinePosition(
+                          record.time,
+                          DAY_START_HOUR
+                        );
+                        const top = (pos / 24) * 100;
+
+                        return (
+                          <div
+                            key={record.id}
+                            className={`absolute left-1 right-1 h-1.5 rounded-sm ${getActivityBarClasses("medicine")}`}
+                            style={{ top: `${top}%` }}
+                          />
+                        );
+                      })}
+
+                      {/* Growth markers */}
+                      {day.growthRecords?.map((record) => {
+                        const pos = normalizeToTimelinePosition(
+                          record.date,
+                          DAY_START_HOUR
+                        );
+                        const top = (pos / 24) * 100;
+
+                        return (
+                          <div
+                            key={record.id}
+                            className={`absolute left-1 right-1 h-1.5 rounded-sm ${getActivityBarClasses("growth")}`}
+                            style={{ top: `${top}%` }}
+                          />
+                        );
+                      })}
+
+                      {/* Temperature markers */}
+                      {day.temperatureRecords?.map((record) => {
+                        const pos = normalizeToTimelinePosition(
+                          record.time,
+                          DAY_START_HOUR
+                        );
+                        const top = (pos / 24) * 100;
+
+                        return (
+                          <div
+                            key={record.id}
+                            className={`absolute left-1 right-1 h-1.5 rounded-sm ${getActivityBarClasses("temperature")}`}
+                            style={{ top: `${top}%` }}
+                          />
+                        );
+                      })}
+
+                      {/* Activity bars */}
+                      {day.activityRecords?.map((record) => {
+                        const startPos = normalizeToTimelinePosition(
+                          record.startTime,
+                          DAY_START_HOUR
+                        );
+                        const endPos = record.endTime
+                          ? normalizeToTimelinePosition(
+                              record.endTime,
+                              DAY_START_HOUR
+                            )
+                          : normalizeToTimelinePosition(
+                              new Date(),
+                              DAY_START_HOUR
+                            );
+                        const top = (startPos / 24) * 100;
+                        const height = ((endPos - startPos) / 24) * 100;
+
+                        return (
+                          <div
+                            key={record.id}
+                            className={`absolute left-1 right-1 rounded-sm ${getActivityBarClasses("activity")}`}
+                            style={{
+                              top: `${Math.max(0, top)}%`,
+                              height: `${Math.max(2, Math.min(height, 100 - top))}%`,
+                            }}
+                          />
+                        );
+                      })}
                     </div>
                   ))}
                 </div>
