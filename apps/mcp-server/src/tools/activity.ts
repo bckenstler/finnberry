@@ -6,6 +6,13 @@ import {
   buildLogResponse,
   mapRecentRecords,
 } from "./helpers.js";
+import {
+  parseQueryDates,
+  sanitizeLimit,
+  sanitizeOffset,
+  buildQueryResponse,
+  type QueryInput,
+} from "./query-helpers.js";
 
 type ActivityType =
   | "TUMMY_TIME"
@@ -169,6 +176,94 @@ export async function handleActivityTools(
           notes: r.notes,
         })),
       };
+    }
+
+    case "query-activity-records": {
+      const {
+        childId,
+        startDate,
+        endDate,
+        limit,
+        offset,
+        orderBy = "desc",
+        includeSummary = false,
+        activityType,
+      } = args as unknown as QueryInput & {
+        activityType?: ActivityType;
+      };
+
+      const { start, end } = parseQueryDates(startDate, endDate);
+      const safeLimit = sanitizeLimit(limit);
+      const safeOffset = sanitizeOffset(offset);
+
+      const where = {
+        childId,
+        startTime: { gte: start, lte: end },
+        ...(activityType ? { activityType } : {}),
+      };
+
+      const [total, records] = await Promise.all([
+        prisma.activityRecord.count({ where }),
+        prisma.activityRecord.findMany({
+          where,
+          orderBy: { startTime: orderBy },
+          skip: safeOffset,
+          take: safeLimit,
+        }),
+      ]);
+
+      // Build summary if requested
+      let summary;
+      if (includeSummary) {
+        // Group by activity type
+        const byType: Record<string, { count: number; totalMinutes: number }> = {};
+
+        records.forEach((r) => {
+          const type = r.activityType;
+          if (!byType[type]) {
+            byType[type] = { count: 0, totalMinutes: 0 };
+          }
+          byType[type].count++;
+          if (r.endTime) {
+            byType[type].totalMinutes += calculateDurationMinutes(r.startTime, r.endTime);
+          }
+        });
+
+        const totalMinutes = Object.values(byType).reduce((sum, t) => sum + t.totalMinutes, 0);
+        const completedCount = records.filter((r) => r.endTime !== null).length;
+
+        summary = {
+          totalActivities: records.length,
+          completedActivities: completedCount,
+          totalTime: formatDuration(totalMinutes),
+          totalMinutes,
+          byType: Object.entries(byType).map(([type, data]) => ({
+            activityType: type,
+            activityLabel: ACTIVITY_LABELS[type as ActivityType],
+            count: data.count,
+            totalTime: formatDuration(data.totalMinutes),
+            totalMinutes: data.totalMinutes,
+          })),
+        };
+      }
+
+      // Map records to output format
+      const mappedRecords = records.map((r) => ({
+        id: r.id,
+        childId: r.childId,
+        activityType: r.activityType,
+        activityLabel: ACTIVITY_LABELS[r.activityType as ActivityType],
+        startTime: r.startTime.toISOString(),
+        endTime: r.endTime?.toISOString() ?? null,
+        durationMinutes: r.endTime
+          ? Math.round((r.endTime.getTime() - r.startTime.getTime()) / 60000)
+          : null,
+        notes: r.notes,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
+
+      return buildQueryResponse(mappedRecords, total, safeLimit, safeOffset, start, end, summary);
     }
 
     default:

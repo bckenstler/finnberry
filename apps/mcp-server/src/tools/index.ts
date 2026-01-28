@@ -701,6 +701,461 @@ export function registerTools(): Tool[] {
       },
     },
 
+    // Query tools - Full record access with custom date ranges, pagination, and filtering
+    {
+      name: "query-sleep-records",
+      description: "Query sleep records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          sleepType: {
+            type: "string",
+            enum: ["NAP", "NIGHT"],
+            description: "Filter by sleep type",
+          },
+          completedOnly: {
+            type: "boolean",
+            default: false,
+            description: "Only return completed sleep sessions (with endTime)",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-feeding-records",
+      description: "Query feeding records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          feedingType: {
+            type: "string",
+            enum: ["BREAST", "BOTTLE", "SOLIDS"],
+            description: "Filter by feeding type",
+          },
+          side: {
+            type: "string",
+            enum: ["LEFT", "RIGHT", "BOTH"],
+            description: "Filter by breast side (for breastfeeding)",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-diaper-records",
+      description: "Query diaper records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          diaperType: {
+            type: "string",
+            enum: ["WET", "DIRTY", "BOTH", "DRY"],
+            description: "Filter by diaper type",
+          },
+          color: {
+            type: "string",
+            enum: ["YELLOW", "GREEN", "BROWN", "BLACK", "RED", "WHITE", "OTHER"],
+            description: "Filter by stool color",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-pumping-records",
+      description: "Query pumping records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          completedOnly: {
+            type: "boolean",
+            default: false,
+            description: "Only return completed sessions (with endTime)",
+          },
+          side: {
+            type: "string",
+            enum: ["LEFT", "RIGHT", "BOTH"],
+            description: "Filter by breast side",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-activity-records",
+      description: "Query activity records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          activityType: {
+            type: "string",
+            enum: [
+              "TUMMY_TIME",
+              "BATH",
+              "OUTDOOR_PLAY",
+              "INDOOR_PLAY",
+              "SCREEN_TIME",
+              "SKIN_TO_SKIN",
+              "STORYTIME",
+              "TEETH_BRUSHING",
+              "OTHER",
+            ],
+            description: "Filter by activity type",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-temperature-records",
+      description: "Query temperature records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          feverOnly: {
+            type: "boolean",
+            default: false,
+            description: "Only return fever readings (>= 38.0°C)",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-medicine-records",
+      description: "Query medicine administration records with custom date range, pagination, and filtering. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by time (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+          medicineId: {
+            type: "string",
+            description: "Filter by specific medicine ID",
+          },
+          includeSkipped: {
+            type: "boolean",
+            default: true,
+            description: "Include skipped doses in results",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+    {
+      name: "query-growth-records",
+      description: "Query growth records with custom date range and pagination. Returns raw records with optional summary statistics.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child",
+          },
+          startDate: {
+            type: "string",
+            format: "date-time",
+            description: "Start of date range (ISO 8601). Defaults to 7 days ago.",
+          },
+          endDate: {
+            type: "string",
+            format: "date-time",
+            description: "End of date range (ISO 8601). Defaults to now.",
+          },
+          limit: {
+            type: "number",
+            minimum: 1,
+            maximum: 500,
+            default: 100,
+            description: "Maximum records to return (1-500, default 100)",
+          },
+          offset: {
+            type: "number",
+            minimum: 0,
+            default: 0,
+            description: "Records to skip for pagination (default 0)",
+          },
+          orderBy: {
+            type: "string",
+            enum: ["asc", "desc"],
+            default: "desc",
+            description: "Sort order by date (default: desc)",
+          },
+          includeSummary: {
+            type: "boolean",
+            default: false,
+            description: "Include aggregated summary statistics",
+          },
+        },
+        required: ["childId"],
+      },
+    },
+
     // Child tools
     {
       name: "list-children",

@@ -1,5 +1,12 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, formatTime } from "@finnberry/utils";
+import {
+  parseQueryDates,
+  sanitizeLimit,
+  sanitizeOffset,
+  buildQueryResponse,
+  type QueryInput,
+} from "./query-helpers.js";
 
 export async function handleMedicineTools(
   name: string,
@@ -156,6 +163,111 @@ export async function handleMedicineTools(
           notes: r.notes,
         })),
       };
+    }
+
+    case "query-medicine-records": {
+      const {
+        childId,
+        startDate,
+        endDate,
+        limit,
+        offset,
+        orderBy = "desc",
+        includeSummary = false,
+        medicineId,
+        includeSkipped = true,
+      } = args as unknown as QueryInput & {
+        medicineId?: string;
+        includeSkipped?: boolean;
+      };
+
+      const { start, end } = parseQueryDates(startDate, endDate);
+      const safeLimit = sanitizeLimit(limit);
+      const safeOffset = sanitizeOffset(offset);
+
+      // Medicine records are linked via Medicine -> Child, so we need to join
+      const where = {
+        time: { gte: start, lte: end },
+        medicine: {
+          childId,
+          ...(medicineId ? { id: medicineId } : {}),
+        },
+        ...(includeSkipped ? {} : { skipped: false }),
+      };
+
+      const [total, records] = await Promise.all([
+        prisma.medicineRecord.count({ where }),
+        prisma.medicineRecord.findMany({
+          where,
+          orderBy: { time: orderBy },
+          skip: safeOffset,
+          take: safeLimit,
+          include: {
+            medicine: {
+              select: {
+                id: true,
+                name: true,
+                dosage: true,
+                frequency: true,
+              },
+            },
+          },
+        }),
+      ]);
+
+      // Build summary if requested
+      let summary;
+      if (includeSummary) {
+        const givenCount = records.filter((r) => !r.skipped).length;
+        const skippedCount = records.filter((r) => r.skipped).length;
+
+        // Group by medicine
+        const byMedicine: Record<string, { name: string; given: number; skipped: number }> = {};
+        records.forEach((r) => {
+          const medId = r.medicine.id;
+          if (!byMedicine[medId]) {
+            byMedicine[medId] = {
+              name: r.medicine.name,
+              given: 0,
+              skipped: 0,
+            };
+          }
+          if (r.skipped) {
+            byMedicine[medId].skipped++;
+          } else {
+            byMedicine[medId].given++;
+          }
+        });
+
+        summary = {
+          totalRecords: records.length,
+          givenCount,
+          skippedCount,
+          byMedicine: Object.entries(byMedicine).map(([id, data]) => ({
+            medicineId: id,
+            medicineName: data.name,
+            given: data.given,
+            skipped: data.skipped,
+          })),
+        };
+      }
+
+      // Map records to output format
+      const mappedRecords = records.map((r) => ({
+        id: r.id,
+        medicineId: r.medicine.id,
+        medicineName: r.medicine.name,
+        time: r.time.toISOString(),
+        formattedTime: formatTime(r.time),
+        dosageGiven: r.dosageGiven,
+        defaultDosage: r.medicine.dosage,
+        skipped: r.skipped,
+        notes: r.notes,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
+
+      return buildQueryResponse(mappedRecords, total, safeLimit, safeOffset, start, end, summary);
     }
 
     default:
