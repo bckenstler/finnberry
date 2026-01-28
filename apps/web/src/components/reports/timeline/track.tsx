@@ -346,10 +346,12 @@ export function TimelineTrack({
   events.sort((a, b) => a.startPos - b.startPos);
 
   // Assign columns for overlapping events
-  const assignColumns = (events: TimelineEvent[]): TimelineEvent[] => {
+  const assignColumns = (events: TimelineEvent[]): (TimelineEvent & { totalColumns: number })[] => {
     const columns: { endPos: number }[] = [];
+    const eventsWithColumns: (TimelineEvent & { column: number })[] = [];
 
-    return events.map((event) => {
+    // First pass: assign columns
+    for (const event of events) {
       // Find first available column
       let column = 0;
       for (let i = 0; i < columns.length; i++) {
@@ -367,12 +369,28 @@ export function TimelineTrack({
         columns.push({ endPos: event.endPos });
       }
 
-      return { ...event, column };
+      eventsWithColumns.push({ ...event, column });
+    }
+
+    // Second pass: calculate totalColumns for each event based on actual overlaps
+    return eventsWithColumns.map((event) => {
+      // Count how many events overlap with this one
+      let maxOverlaps = 1;
+      for (const other of eventsWithColumns) {
+        if (other.id === event.id) continue;
+        // Check if events overlap
+        if (other.startPos < event.endPos && other.endPos > event.startPos) {
+          // They overlap - track the maximum column used among overlapping events
+          maxOverlaps = Math.max(maxOverlaps, (other.column ?? 0) + 1);
+        }
+      }
+      // Include this event's own column in the count
+      const totalColumns = Math.max(maxOverlaps, (event.column ?? 0) + 1);
+      return { ...event, totalColumns };
     });
   };
 
   const eventsWithColumns = assignColumns(events);
-  const maxColumns = Math.max(...eventsWithColumns.map((e) => (e.column ?? 0) + 1), 1);
 
   return (
     <div className="relative flex" style={{ height: "1500px" }}>
@@ -404,7 +422,7 @@ export function TimelineTrack({
         {eventsWithColumns.map((event) => {
           const top = (event.startPos / 24) * 100;
           const height = ((event.endPos - event.startPos) / 24) * 100;
-          const columnWidth = 100 / maxColumns;
+          const columnWidth = 100 / event.totalColumns;
           const left = (event.column ?? 0) * columnWidth;
           // Quarter hour = 0.25/24 * 100 = ~1.04% (minimum height for all events)
           const quarterHourPercent = (0.25 / 24) * 100;
