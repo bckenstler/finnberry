@@ -8,7 +8,7 @@ import { HomeView } from "@/components/dashboard/home-view";
 import { ReportsView } from "@/components/dashboard/reports-view";
 import { ChildSelector } from "@/components/dashboard/child-selector";
 import Link from "next/link";
-import { Settings, Home, BarChart3 } from "lucide-react";
+import { Settings, Home, BarChart3, MessageCircle } from "lucide-react";
 
 export default function ChildDashboardPage({
   params,
@@ -55,12 +55,20 @@ export default function ChildDashboardPage({
           allChildren={allChildren ?? [child]}
           householdId={child.household?.id ?? ""}
         />
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/dashboard/${childId}/settings`}>
-            <Settings className="mr-2 h-4 w-4" />
-            Settings
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/${childId}/chat`}>
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Chat
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/dashboard/${childId}/settings`}>
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Main tabs */}

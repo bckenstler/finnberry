@@ -13,9 +13,12 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.20",
+    "@anthropic-ai/sdk": "^0.71.2",
     "@auth/prisma-adapter": "^2.7.4",
     "@finnberry/api": "workspace:*",
     "@finnberry/db": "workspace:*",
+    "@finnberry/mcp-server": "workspace:*",
     "@finnberry/schemas": "workspace:*",
     "@finnberry/utils": "workspace:*",
     "@radix-ui/react-avatar": "^1.1.2",
