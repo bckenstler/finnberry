@@ -6,9 +6,18 @@ import { registerTools, handleToolCall } from "@finnberry/mcp-server/tools";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
+type ModelId = "haiku" | "sonnet" | "opus";
+
+const MODEL_MAP: Record<ModelId, string> = {
+  haiku: "claude-3-5-haiku-20241022",
+  sonnet: "claude-sonnet-4-5-20250929",
+  opus: "claude-opus-4-5-20251101",
+};
+
 interface ChatRequest {
   childId: string;
   message: string;
+  model?: ModelId;
   conversationHistory?: Array<{
     role: "user" | "assistant";
     content: string;
@@ -94,7 +103,7 @@ export async function POST(request: Request) {
     }
 
     const body: ChatRequest = await request.json();
-    const { childId, message, conversationHistory = [] } = body;
+    const { childId, message, model = "sonnet", conversationHistory = [] } = body;
 
     if (!childId || !message) {
       return new Response(
@@ -196,7 +205,7 @@ export async function POST(request: Request) {
           while (continueLoop) {
             // Create a streaming message
             const streamResponse = anthropic.messages.stream({
-              model: "claude-sonnet-4-5-20250929",
+              model: MODEL_MAP[model] || MODEL_MAP.sonnet,
               max_tokens: 4096,
               system: systemPrompt,
               tools,

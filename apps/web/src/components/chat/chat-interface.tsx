@@ -4,7 +4,15 @@ import { useRef, useEffect } from "react";
 import { ChatMessage, type ToolCall, type ContentBlock } from "./chat-message";
 import { ChatInput } from "./chat-input";
 import { TypingIndicator } from "./typing-indicator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import type { ModelId } from "@/hooks/use-chat";
 
 export interface Message {
   id: string;
@@ -14,12 +22,20 @@ export interface Message {
   isStreaming?: boolean;
 }
 
+const MODEL_OPTIONS: { value: ModelId; label: string }[] = [
+  { value: "haiku", label: "Haiku" },
+  { value: "sonnet", label: "Sonnet 4.5" },
+  { value: "opus", label: "Opus 4.5" },
+];
+
 interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   onStop?: () => void;
   isLoading?: boolean;
   disabled?: boolean;
+  model?: ModelId;
+  onModelChange?: (model: ModelId) => void;
   className?: string;
 }
 
@@ -29,6 +45,8 @@ export function ChatInterface({
   onStop,
   isLoading,
   disabled,
+  model = "sonnet",
+  onModelChange,
   className,
 }: ChatInterfaceProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -83,7 +101,7 @@ export function ChatInterface({
       </div>
 
       {/* Input area */}
-      <div className="border-t bg-background p-4">
+      <div className="border-t bg-background p-4 space-y-3">
         <ChatInput
           onSend={onSendMessage}
           onStop={onStop}
@@ -91,6 +109,27 @@ export function ChatInterface({
           isLoading={isLoading}
           placeholder="Ask Finnberry anything..."
         />
+        {onModelChange && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Model:</span>
+            <Select
+              value={model}
+              onValueChange={(value) => onModelChange(value as ModelId)}
+              disabled={isLoading}
+            >
+              <SelectTrigger className="w-[140px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MODEL_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
       </div>
     </div>
   );

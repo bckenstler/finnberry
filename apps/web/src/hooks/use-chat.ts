@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef } from "react";
 import type { Message, ToolCall, ContentBlock } from "@/components/chat";
 
+export type ModelId = "haiku" | "sonnet" | "opus";
+
 interface UseChatOptions {
   childId: string;
   onError?: (error: Error) => void;
@@ -12,6 +14,8 @@ interface UseChatReturn {
   messages: Message[];
   isLoading: boolean;
   error: Error | null;
+  model: ModelId;
+  setModel: (model: ModelId) => void;
   sendMessage: (content: string) => Promise<void>;
   stop: () => void;
   clearMessages: () => void;
@@ -21,6 +25,7 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const [model, setModel] = useState<ModelId>("sonnet");
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
@@ -57,6 +62,7 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
           body: JSON.stringify({
             childId,
             message: content,
+            model,
             conversationHistory,
           }),
           signal: abortControllerRef.current.signal,
@@ -230,7 +236,7 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
         setIsLoading(false);
       }
     },
-    [childId, isLoading, messages, onError]
+    [childId, isLoading, messages, model, onError]
   );
 
   const stop = useCallback(() => {
@@ -251,6 +257,8 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
     messages,
     isLoading,
     error,
+    model,
+    setModel,
     sendMessage,
     stop,
     clearMessages,
