@@ -54,7 +54,11 @@ export async function handleResourceRead(
   prisma: PrismaClient
 ): Promise<{ contents: Array<{ uri: string; mimeType: string; text: string }> }> {
   const url = new URL(uri);
-  const pathParts = url.pathname.split("/").filter(Boolean);
+  // For custom protocols like finnberry://, the "host" part becomes hostname
+  // e.g., "finnberry://children/id" -> hostname: "children", pathname: "/id"
+  // We need to combine them to get the full path
+  const fullPath = url.hostname + url.pathname;
+  const pathParts = fullPath.split("/").filter(Boolean);
 
   // finnberry://children
   if (pathParts.length === 1 && pathParts[0] === "children") {

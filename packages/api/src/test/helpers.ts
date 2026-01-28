@@ -16,6 +16,7 @@ export const TEST_IDS = {
   activityId: "clq1234567890abcdefghij11",
   medicineId: "clq1234567890abcdefghij12",
   recordId: "clq1234567890abcdefghij13",
+  temperatureId: "clq1234567890abcdefghij14",
 } as const;
 
 export function createTestUser(overrides?: Partial<TRPCContext["session"]>) {
@@ -142,6 +143,19 @@ export function createTestInvite(overrides?: Record<string, unknown>) {
     token: "test-token-123",
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+export function createTestTemperatureRecord(overrides?: Record<string, unknown>) {
+  return {
+    id: TEST_IDS.temperatureId,
+    childId: TEST_IDS.childId,
+    time: new Date("2024-01-15T10:00:00"),
+    temperatureCelsius: 37.0,
+    notes: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     ...overrides,
   };
 }

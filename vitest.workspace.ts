@@ -5,4 +5,5 @@ export default defineWorkspace([
   "packages/schemas",
   "packages/api",
   "apps/web",
+  "apps/mcp-server",
 ]);
