@@ -30,13 +30,14 @@ finnberry/
 │   │   │   ├── app/             # App Router pages
 │   │   │   │   ├── (auth)/      # Auth pages (login, verify)
 │   │   │   │   ├── (dashboard)/ # Protected dashboard routes
-│   │   │   │   └── api/         # API routes (tRPC, NextAuth, test/seed)
+│   │   │   │   └── api/         # API routes (tRPC, NextAuth, chat, test/seed)
 │   │   │   ├── components/
 │   │   │   │   ├── ui/          # shadcn/ui components
 │   │   │   │   ├── tracking/    # Sleep, feeding, diaper, timer components
 │   │   │   │   ├── reports/     # Day/week/list views, activity rows, timeline
+│   │   │   │   ├── chat/        # AI chat interface components
 │   │   │   │   └── dashboard/   # Dashboard layout, child selector
-│   │   │   ├── hooks/           # React hooks (use-timer, use-toast, use-realtime)
+│   │   │   ├── hooks/           # React hooks (use-timer, use-toast, use-realtime, use-chat)
 │   │   │   ├── lib/             # Config (auth, trpc, supabase, utils)
 │   │   │   └── stores/          # Zustand stores (timer-store)
 │   │   └── package.json
@@ -202,6 +203,28 @@ Timers persist in localStorage via Zustand (`apps/web/src/stores/timer-store.ts`
 - Page refresh → timers restored from localStorage
 - Breastfeeding timers support per-side duration tracking (leftDurationSeconds, rightDurationSeconds)
 - Side switching during active breastfeeding timer
+- When activities are started via Chat/MCP (database only), the UI syncs on modal open via `getActive` queries
+
+### AI Chat Interface
+
+The dashboard includes a Chat tab (`apps/web/src/components/chat/`) for natural language interaction:
+- Uses Anthropic SDK with streaming responses (`/api/chat` route)
+- Tool calling for logging activities and querying data
+- Model selection (Haiku, Sonnet, Opus)
+- Streaming text and tool execution visualization
+- Key files:
+  - `chat-interface.tsx` - Main chat container with messages and input
+  - `chat-message.tsx` - User/assistant message bubbles with tool call display
+  - `use-chat.ts` hook - Manages chat state, streaming, and abort handling
+
+### Timeline Views
+
+Reports section has three views, all showing all 8 activity types:
+- **Day View** (`day-view.tsx` + `timeline/track.tsx`) - Vertical timeline with clickable event blocks
+- **Week View** (`week-view.tsx`) - 7-column grid with activity markers
+- **List View** (`list-view.tsx`) - Chronological list grouped by date
+
+The `timeline.ts` router fetches all record types (sleep, feeding, diaper, pumping, medicine, growth, temperature, activity) for each view. Cache invalidation in `activity-row.tsx` ensures all views update after edits/deletes.
 
 ### Real-time Sync
 
@@ -288,6 +311,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=  # Server-side Supabase access
 EMAIL_SERVER=            # SMTP connection string for magic links
 EMAIL_FROM=              # Sender email address
+ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
 ```
 
 ## Testing the MCP Server

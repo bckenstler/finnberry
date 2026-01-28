@@ -15,8 +15,9 @@ An open-source baby tracking app with MCP (Model Context Protocol) integration.
 - **Multi-Caregiver Support**: Share access with family members and caregivers
 - **Real-time Sync**: Changes sync instantly across all devices
 - **Multiple Report Views**: Day view, week view, and list view for activity history
-- **Visual Timeline**: Daily activity timeline with visual representation
+- **Visual Timeline**: Daily activity timeline with visual representation of all activity types
 - **Activity Editing**: Edit logged activities with duration sliders and detailed controls
+- **AI Chat Interface**: Natural language interaction for logging and querying baby data
 - **MCP Integration**: AI agent integration for logging and analyzing baby data
 
 ## Tech Stack
@@ -111,6 +112,7 @@ The app will be available at `http://localhost:3000`.
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side access) |
 | `EMAIL_SERVER` | SMTP connection string for magic link emails |
 | `EMAIL_FROM` | Sender email address for magic links |
+| `ANTHROPIC_API_KEY` | Anthropic API key for AI Chat feature |
 
 ### Email Configuration
 
@@ -191,6 +193,34 @@ This prevents Host header injection attacks.
 - Don't expose the app directly to the internet without proper security
 - Use strong passwords for database and `NEXTAUTH_SECRET`
 - Keep dependencies updated
+
+## AI Chat Interface
+
+The dashboard includes a Chat tab that allows natural language interaction with your baby tracking data.
+
+### Features
+
+- **Natural Language Logging**: Say "Log a wet diaper" or "Start a nap for the baby"
+- **Query Data**: Ask "What did the baby do today?" or "How much sleep did the baby get this week?"
+- **Streaming Responses**: Real-time streaming of AI responses with tool execution visualization
+- **Model Selection**: Choose between Haiku (fast), Sonnet (balanced), or Opus (most capable)
+
+### Setup
+
+1. Get an Anthropic API key from [console.anthropic.com](https://console.anthropic.com)
+2. Add to your `.env` file:
+   ```bash
+   ANTHROPIC_API_KEY=sk-ant-...
+   ```
+3. The Chat tab will appear in the dashboard alongside Home and Reports
+
+### Example Interactions
+
+- "Log a wet diaper"
+- "Start tracking sleep"
+- "Log a 4oz bottle of formula"
+- "What time was the last feeding?"
+- "Give me a summary of today's activities"
 
 ## MCP Server
 
