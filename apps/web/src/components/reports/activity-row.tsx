@@ -244,6 +244,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.sleep.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Sleep record deleted" });
       setDeleteConfirmOpen(false);
       closeEditDialog();
@@ -255,6 +256,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.feeding.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Feeding record deleted" });
       setDeleteConfirmOpen(false);
       closeEditDialog();
@@ -266,6 +268,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.diaper.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Diaper record deleted" });
       setDeleteConfirmOpen(false);
       closeEditDialog();
@@ -276,6 +279,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     onSuccess: () => {
       utils.pumping.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Pumping record deleted" });
       setDeleteConfirmOpen(false);
@@ -287,6 +292,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     onSuccess: () => {
       utils.medicine.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Medicine record deleted" });
       setDeleteConfirmOpen(false);
@@ -298,6 +305,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     onSuccess: () => {
       utils.growth.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Growth record deleted" });
       setDeleteConfirmOpen(false);
@@ -309,6 +318,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     onSuccess: () => {
       utils.temperature.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Temperature record deleted" });
       setDeleteConfirmOpen(false);
@@ -320,6 +331,8 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
     onSuccess: () => {
       utils.activity.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
+      utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       utils.timeline.getLastActivities.invalidate({ childId });
       toast({ title: "Activity record deleted" });
       setDeleteConfirmOpen(false);
@@ -333,6 +346,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.sleep.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Sleep record updated" });
       closeEditDialog();
     },
@@ -343,6 +357,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.feeding.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Feeding record updated" });
       closeEditDialog();
     },
@@ -353,6 +368,7 @@ export function ActivityRow({ activity, childId, childName = "Baby", autoOpenEdi
       utils.diaper.list.invalidate();
       utils.timeline.getList.invalidate({ childId });
       utils.timeline.getDay.invalidate({ childId });
+      utils.timeline.getWeek.invalidate({ childId });
       toast({ title: "Diaper record updated" });
       closeEditDialog();
     },
