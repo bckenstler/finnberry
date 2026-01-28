@@ -11,6 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ModelId } from "@/hooks/use-chat";
 
@@ -32,6 +34,7 @@ interface ChatInterfaceProps {
   messages: Message[];
   onSendMessage: (message: string) => void;
   onStop?: () => void;
+  onClear?: () => void;
   isLoading?: boolean;
   disabled?: boolean;
   model?: ModelId;
@@ -43,6 +46,7 @@ export function ChatInterface({
   messages,
   onSendMessage,
   onStop,
+  onClear,
   isLoading,
   disabled,
   model = "sonnet",
@@ -109,27 +113,41 @@ export function ChatInterface({
           isLoading={isLoading}
           placeholder="Ask Finnberry anything..."
         />
-        {onModelChange && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">Model:</span>
-            <Select
-              value={model}
-              onValueChange={(value) => onModelChange(value as ModelId)}
+        <div className="flex items-center justify-between">
+          {onModelChange && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground">Model:</span>
+              <Select
+                value={model}
+                onValueChange={(value) => onModelChange(value as ModelId)}
+                disabled={isLoading}
+              >
+                <SelectTrigger className="w-[140px] h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODEL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {onClear && messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClear}
               disabled={isLoading}
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
-              <SelectTrigger className="w-[140px] h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MODEL_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
+              <RotateCcw className="h-3 w-3 mr-1" />
+              New conversation
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
