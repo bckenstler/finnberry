@@ -23,7 +23,7 @@ export interface Message {
 }
 
 const MODEL_OPTIONS: { value: ModelId; label: string }[] = [
-  { value: "haiku", label: "Haiku 3.5" },
+  { value: "haiku", label: "Haiku 4.5" },
   { value: "sonnet", label: "Sonnet 4.5" },
   { value: "opus", label: "Opus 4.5" },
 ];
