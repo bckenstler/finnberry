@@ -7,6 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HomeView } from "@/components/dashboard/home-view";
 import { ReportsView } from "@/components/dashboard/reports-view";
 import { ChildSelector } from "@/components/dashboard/child-selector";
+import { ChatInterface } from "@/components/chat";
+import { useChat } from "@/hooks/use-chat";
 import Link from "next/link";
 import { Settings, Home, BarChart3, MessageCircle } from "lucide-react";
 
@@ -55,25 +57,17 @@ export default function ChildDashboardPage({
           allChildren={allChildren ?? [child]}
           householdId={child.household?.id ?? ""}
         />
-        <div className="flex items-center gap-2">
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/${childId}/chat`}>
-              <MessageCircle className="mr-2 h-4 w-4" />
-              Chat
-            </Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/dashboard/${childId}/settings`}>
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </Link>
-          </Button>
-        </div>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/dashboard/${childId}/settings`}>
+            <Settings className="mr-2 h-4 w-4" />
+            Settings
+          </Link>
+        </Button>
       </div>
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="w-full grid grid-cols-2">
+        <TabsList className="w-full grid grid-cols-3">
           <TabsTrigger value="home" className="gap-2">
             <Home className="h-4 w-4" />
             Home
@@ -81,6 +75,10 @@ export default function ChildDashboardPage({
           <TabsTrigger value="reports" className="gap-2">
             <BarChart3 className="h-4 w-4" />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="chat" className="gap-2">
+            <MessageCircle className="h-4 w-4" />
+            Chat
           </TabsTrigger>
         </TabsList>
 
@@ -91,7 +89,29 @@ export default function ChildDashboardPage({
         <TabsContent value="reports" className="mt-4">
           <ReportsView childId={childId} />
         </TabsContent>
+
+        <TabsContent value="chat" className="mt-4">
+          <ChatTab childId={childId} />
+        </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+// Separate component to avoid running useChat when chat tab is not active
+function ChatTab({ childId }: { childId: string }) {
+  const { messages, isLoading, sendMessage, stop, clearMessages } = useChat({
+    childId,
+  });
+
+  return (
+    <div className="h-[calc(100vh-220px)] min-h-[400px] border rounded-lg overflow-hidden">
+      <ChatInterface
+        messages={messages}
+        onSendMessage={sendMessage}
+        onStop={stop}
+        isLoading={isLoading}
+      />
     </div>
   );
 }
