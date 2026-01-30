@@ -2,8 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@finnberry/db";
 import { randomBytes } from "crypto";
 
-// Only allow in development/test environments
-const isTestEnv = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+// Only allow in development/test environments or when explicitly enabled for CI
+const isTestEnv =
+  process.env.NODE_ENV === "development" ||
+  process.env.NODE_ENV === "test" ||
+  process.env.ENABLE_TEST_SEED === "true";
 
 export async function POST(request: Request) {
   if (!isTestEnv) {

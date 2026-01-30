@@ -63,6 +63,7 @@ jobs:
           DIRECT_URL: postgresql://postgres:postgres@localhost:5432/finnberry_test
           AUTH_SECRET: test-secret-for-ci-only
           BASE_URL: http://localhost:3000
+          ENABLE_TEST_SEED: "true"
 
       - uses: actions/upload-artifact@v4
         if: failure()
