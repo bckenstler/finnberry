@@ -377,22 +377,63 @@ export function TimelineTrack({
       eventsWithColumns.push({ ...event, column });
     }
 
-    // Second pass: calculate totalColumns for each event based on actual overlaps
-    return eventsWithColumns.map((event) => {
-      // Count how many events overlap with this one
-      let maxOverlaps = 1;
-      for (const other of eventsWithColumns) {
-        if (other.id === event.id) continue;
+    // Second pass: find overlap clusters and assign consistent totalColumns
+    // Build adjacency list for overlapping events
+    const overlaps = new Map<string, Set<string>>();
+    for (const event of eventsWithColumns) {
+      overlaps.set(event.id, new Set());
+    }
+
+    for (let i = 0; i < eventsWithColumns.length; i++) {
+      for (let j = i + 1; j < eventsWithColumns.length; j++) {
+        const a = eventsWithColumns[i];
+        const b = eventsWithColumns[j];
         // Check if events overlap
-        if (other.startPos < event.endPos && other.endPos > event.startPos) {
-          // They overlap - track the maximum column used among overlapping events
-          maxOverlaps = Math.max(maxOverlaps, (other.column ?? 0) + 1);
+        if (a.startPos < b.endPos && a.endPos > b.startPos) {
+          overlaps.get(a.id)!.add(b.id);
+          overlaps.get(b.id)!.add(a.id);
         }
       }
-      // Include this event's own column in the count
-      const totalColumns = Math.max(maxOverlaps, (event.column ?? 0) + 1);
-      return { ...event, totalColumns };
-    });
+    }
+
+    // Find connected components (overlap clusters) using BFS
+    const visited = new Set<string>();
+    const clusterTotalColumns = new Map<string, number>();
+
+    for (const event of eventsWithColumns) {
+      if (visited.has(event.id)) continue;
+
+      // BFS to find all events in this cluster
+      const cluster: typeof eventsWithColumns = [];
+      const queue = [event];
+      visited.add(event.id);
+
+      while (queue.length > 0) {
+        const current = queue.shift()!;
+        cluster.push(current);
+
+        for (const neighborId of overlaps.get(current.id)!) {
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            const neighbor = eventsWithColumns.find(e => e.id === neighborId)!;
+            queue.push(neighbor);
+          }
+        }
+      }
+
+      // Find max column in cluster + 1 to get totalColumns for all events in cluster
+      const maxColumn = Math.max(...cluster.map(e => e.column ?? 0));
+      const totalColumns = maxColumn + 1;
+
+      for (const e of cluster) {
+        clusterTotalColumns.set(e.id, totalColumns);
+      }
+    }
+
+    return eventsWithColumns.map((event) => ({
+      ...event,
+      totalColumns: clusterTotalColumns.get(event.id) ?? 1,
+    }));
   };
 
   const eventsWithColumns = assignColumns(events);
