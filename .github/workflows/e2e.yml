@@ -57,7 +57,7 @@ jobs:
           AUTH_SECRET: test-secret-for-ci-only
 
       - name: Run E2E Tests
-        run: pnpm test:e2e
+        run: pnpm --filter @finnberry/web exec playwright test --project=chromium
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/finnberry_test
           DIRECT_URL: postgresql://postgres:postgres@localhost:5432/finnberry_test
