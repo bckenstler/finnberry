@@ -360,6 +360,52 @@ ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
 ```
 3. Test tools: `list-children`, `get-daily-summary`, `log-diaper`, etc.
 
+## Deploying to Vercel
+
+### One-Click Deploy
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbckenstler%2Ffinnberry&env=DATABASE_URL,DIRECT_URL,AUTH_SECRET,NEXTAUTH_URL&envDescription=Required%20environment%20variables%20for%20Finnberry&envLink=https%3A%2F%2Fgithub.com%2Fbckenstler%2Ffinnberry%23environment-variables&project-name=finnberry&repository-name=finnberry&root-directory=apps/web)
+
+### Manual Setup
+
+1. Import your repository in the Vercel dashboard
+2. Set **Root Directory** to `apps/web`
+3. Configure the required environment variables (see below)
+4. Deploy
+
+### Required Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | Supabase PostgreSQL pooler connection string |
+| `DIRECT_URL` | Supabase direct connection (for migrations) |
+| `AUTH_SECRET` | Generate with: `openssl rand -base64 32` |
+| `NEXTAUTH_URL` | Your Vercel deployment URL (e.g., `https://finnberry.vercel.app`) |
+
+### Optional Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (for realtime) |
+| `EMAIL_SERVER` | SMTP connection string for magic links |
+| `EMAIL_FROM` | Sender email address |
+| `ANTHROPIC_API_KEY` | Anthropic API key for AI chat feature |
+
+### API Timeout Configuration
+
+The AI chat feature uses streaming responses that may require longer timeouts. The timeout is configured in `apps/web/src/app/api/chat/route.ts` via the `maxDuration` export. Adjust based on your Vercel plan:
+
+| Plan | Max Duration |
+|------|--------------|
+| Hobby (free) | 10 seconds |
+| Pro | 60 seconds |
+| Enterprise | 900 seconds |
+
+The default is set to 60 seconds (Pro plan). For Hobby plan, change `maxDuration` to `10`.
+
 ## Known Limitations / TODOs
 
 - No photo upload for children yet

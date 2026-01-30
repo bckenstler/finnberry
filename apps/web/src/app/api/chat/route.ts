@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { registerTools, handleToolCall } from "@finnberry/mcp-server/tools";
 
 export const runtime = "nodejs";
+// Configure based on your Vercel plan: Hobby=10, Pro=60, Enterprise=900
 export const maxDuration = 60;
 
 type ModelId = "haiku" | "sonnet" | "opus";
