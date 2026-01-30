@@ -49,7 +49,32 @@ finnberry/
 └── turbo.json
 ```
 
+## Deploy to Vercel
+
+The easiest way to deploy Finnberry is with Vercel:
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fbckenstler%2Ffinnberry&env=DATABASE_URL,DIRECT_URL,AUTH_SECRET,NEXTAUTH_URL&envDescription=Required%20environment%20variables%20for%20Finnberry&envLink=https%3A%2F%2Fgithub.com%2Fbckenstler%2Ffinnberry%23environment-variables&project-name=finnberry&repository-name=finnberry&root-directory=apps/web)
+
+### Manual Vercel Setup
+
+1. Import your repository in the [Vercel dashboard](https://vercel.com/new)
+2. Set **Root Directory** to `apps/web`
+3. Configure the required environment variables (see [Environment Variables](#environment-variables))
+4. Deploy
+
+### API Timeout (Vercel Plans)
+
+The AI chat feature uses streaming responses. The default timeout is 60 seconds (Pro plan). For Hobby (free) plan, edit `apps/web/src/app/api/chat/route.ts` and change `maxDuration` to `10`.
+
+| Plan | Max Duration |
+|------|--------------|
+| Hobby (free) | 10 seconds |
+| Pro | 60 seconds |
+| Enterprise | 900 seconds |
+
 ## Getting Started
+
+For local development:
 
 ### Prerequisites
 
