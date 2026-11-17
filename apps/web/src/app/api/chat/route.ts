@@ -25,14 +25,54 @@ interface ChatRequest {
   }>;
 }
 
+// list-children returns every child in the database regardless of household,
+// so it is never offered in chat. The chat is already scoped to one child.
+const TOOLS_EXCLUDED_FROM_CHAT = new Set(["list-children"]);
+
+interface ChatTools {
+  definitions: Anthropic.Tool[];
+  offeredNames: Set<string>;
+  childScopedNames: Set<string>;
+}
+
 // Convert MCP tool definitions to Anthropic tool format
-function convertToolsToAnthropicFormat(): Anthropic.Tool[] {
-  const mcpTools = registerTools();
-  return mcpTools.map((tool) => ({
-    name: tool.name,
-    description: tool.description ?? "",
-    input_schema: tool.inputSchema as Anthropic.Tool["input_schema"],
-  }));
+function getChatTools(): ChatTools {
+  const mcpTools = registerTools().filter(
+    (tool) => !TOOLS_EXCLUDED_FROM_CHAT.has(tool.name)
+  );
+
+  return {
+    definitions: mcpTools.map((tool) => ({
+      name: tool.name,
+      description: tool.description ?? "",
+      input_schema: tool.inputSchema as Anthropic.Tool["input_schema"],
+    })),
+    offeredNames: new Set(mcpTools.map((tool) => tool.name)),
+    childScopedNames: new Set(
+      mcpTools
+        .filter((tool) => "childId" in (tool.inputSchema.properties ?? {}))
+        .map((tool) => tool.name)
+    ),
+  };
+}
+
+// The model chooses tool names and arguments, and its context can contain
+// text the user did not write. Only offered tools run, and a tool that takes
+// a childId always gets the one the session was authorized for.
+function scopeToolInput(
+  toolUse: Anthropic.ToolUseBlock,
+  childId: string,
+  chatTools: ChatTools
+): Record<string, unknown> {
+  if (!chatTools.offeredNames.has(toolUse.name)) {
+    throw new Error(`Tool is not available in chat: ${toolUse.name}`);
+  }
+
+  const toolInput = { ...(toolUse.input as Record<string, unknown>) };
+  if (chatTools.childScopedNames.has(toolUse.name)) {
+    toolInput.childId = childId;
+  }
+  return toolInput;
 }
 
 // Generate system prompt for the chat
@@ -47,7 +87,7 @@ function generateSystemPrompt(
 You are helping track activities for ${childName}, who is ${age}.
 
 IMPORTANT: The current child's ID is: ${childId}
-Always use this childId when calling tools. Do NOT call list-children to look up the ID.
+Always use this childId when calling tools.
 
 Available tools allow you to:
 - Log and query sleep (start-sleep, end-sleep, log-sleep, get-sleep-summary)
@@ -156,35 +196,7 @@ export async function POST(request: Request) {
     });
 
     const systemPrompt = generateSystemPrompt(childId, child.name, child.birthDate);
-    const tools = convertToolsToAnthropicFormat();
-
-    // Tools that need childId injected
-    const toolsRequiringChildId = [
-      "start-sleep",
-      "log-sleep",
-      "get-sleep-summary",
-      "log-breastfeeding",
-      "log-bottle",
-      "log-solids",
-      "get-feeding-summary",
-      "log-diaper",
-      "get-diaper-summary",
-      "start-pumping",
-      "log-pumping",
-      "get-pumping-summary",
-      "create-medicine",
-      "list-medicines",
-      "log-growth",
-      "get-growth-records",
-      "get-latest-growth",
-      "log-temperature",
-      "get-temperature-records",
-      "get-latest-temperature",
-      "start-activity",
-      "log-activity",
-      "get-activity-summary",
-      "get-daily-summary",
-    ];
+    const chatTools = getChatTools();
 
     // Build messages array
     const messages: Anthropic.MessageParam[] = [
@@ -209,7 +221,7 @@ export async function POST(request: Request) {
               model: MODEL_MAP[model] || MODEL_MAP.sonnet,
               max_tokens: 4096,
               system: systemPrompt,
-              tools,
+              tools: chatTools.definitions,
               messages: currentMessages,
             });
 
@@ -263,25 +275,20 @@ export async function POST(request: Request) {
               const toolResults: Anthropic.ToolResultBlockParam[] = [];
 
               for (const toolUse of toolUseBlocks) {
-                // Inject childId if needed
-                const toolInput = { ...(toolUse.input as Record<string, unknown>) };
-                if (
-                  toolsRequiringChildId.includes(toolUse.name) &&
-                  !toolInput.childId
-                ) {
-                  toolInput.childId = childId;
-                }
-
-                // Send tool execution start
-                const toolStartData = JSON.stringify({
-                  type: "tool_executing",
-                  id: toolUse.id,
-                  name: toolUse.name,
-                  input: toolInput,
-                });
-                controller.enqueue(encoder.encode(`data: ${toolStartData}\n\n`));
-
                 try {
+                  const toolInput = scopeToolInput(toolUse, childId, chatTools);
+
+                  // Send tool execution start
+                  const toolStartData = JSON.stringify({
+                    type: "tool_executing",
+                    id: toolUse.id,
+                    name: toolUse.name,
+                    input: toolInput,
+                  });
+                  controller.enqueue(encoder.encode(`data: ${toolStartData}
+
+`));
+
                   // Execute the tool
                   const result = await handleToolCall(
                     toolUse.name,
