@@ -1,7 +1,38 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
+import type { ChatImage } from "@finnberry/schemas";
 import type { Message, ToolCall, ContentBlock } from "@/components/chat";
+
+const HISTORY_MESSAGES_SENT = 10;
+
+function hasSuccessfulToolCall(message: Message): boolean {
+  return (
+    message.contentBlocks?.some(
+      (block) => block.type === "tool" && block.tool.status === "success"
+    ) ?? false
+  );
+}
+
+// History is sent as text, so the model does not see its earlier tool calls.
+// Images are resent only for the most recent turn that had any, so a follow-up
+// question can refer to them, and only until something was logged after that
+// turn: resending them later would invite logging the same entries twice.
+// New images replace older ones, which keeps a request within the image caps.
+function buildConversationHistory(messages: Message[], isSendingImages: boolean) {
+  const recent = messages.slice(-HISTORY_MESSAGES_SENT);
+  const lastImageTurn = recent
+    .map((message) => message.role === "user" && (message.images?.length ?? 0) > 0)
+    .lastIndexOf(true);
+  const wasActedOn = recent.slice(lastImageTurn + 1).some(hasSuccessfulToolCall);
+  const resendImages = lastImageTurn !== -1 && !isSendingImages && !wasActedOn;
+
+  return recent.map((message, index) => ({
+    role: message.role,
+    content: message.content,
+    ...(resendImages && index === lastImageTurn && { images: message.images }),
+  }));
+}
 
 export type ModelId = "haiku" | "sonnet" | "opus";
 
@@ -16,7 +47,7 @@ interface UseChatReturn {
   error: Error | null;
   model: ModelId;
   setModel: (model: ModelId) => void;
-  sendMessage: (content: string) => Promise<void>;
+  sendMessage: (content: string, images?: ChatImage[]) => Promise<void>;
   stop: () => void;
   clearMessages: () => void;
 }
@@ -29,8 +60,9 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
-    async (content: string) => {
-      if (!content.trim() || isLoading) return;
+    async (content: string, images: ChatImage[] = []) => {
+      const isEmpty = !content.trim() && images.length === 0;
+      if (isEmpty || isLoading) return;
 
       // Cancel any existing request
       abortControllerRef.current?.abort();
@@ -41,17 +73,14 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
         id: `user-${Date.now()}`,
         role: "user",
         content,
+        ...(images.length > 0 && { images }),
       };
 
       setMessages((prev) => [...prev, userMessage]);
       setIsLoading(true);
       setError(null);
 
-      // Prepare conversation history (last 10 messages for context)
-      const conversationHistory = messages.slice(-10).map((msg) => ({
-        role: msg.role,
-        content: msg.content,
-      }));
+      const conversationHistory = buildConversationHistory(messages, images.length > 0);
 
       try {
         const response = await fetch("/api/chat", {
@@ -62,8 +91,10 @@ export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
           body: JSON.stringify({
             childId,
             message: content,
+            ...(images.length > 0 && { images }),
             model,
             conversationHistory,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
           }),
           signal: abortControllerRef.current.signal,
         });

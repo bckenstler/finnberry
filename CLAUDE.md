@@ -217,6 +217,9 @@ The dashboard includes a Chat tab (`apps/web/src/components/chat/`) for natural 
 - Tool calling for logging activities and querying data
 - Model selection (Haiku, Sonnet, Opus)
 - Streaming text and tool execution visualization
+- Image attachments: the browser resizes each photo to a JPEG (`apps/web/src/lib/image.ts`) and sends it base64 in the request; the route passes it to the model as an image block. Images are not stored. History resends images only for the latest turn that had any, and only until a tool call succeeds after it
+- The request body is validated by `chatRequestSchema` (`packages/schemas/src/chat.ts`), which owns the image count and size limits
+- Tool calls are scoped in the route: only offered tools run, `list-children` is not offered, and `childId` is always overwritten with the authorized one. Text in images is untrusted, so do not relax this
 - Key files:
   - `chat-interface.tsx` - Main chat container with messages and input
   - `chat-message.tsx` - User/assistant message bubbles with tool call display
