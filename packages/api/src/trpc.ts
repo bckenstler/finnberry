@@ -1,7 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { z, ZodError } from "zod";
-import { prisma, type PrismaClient } from "@finnberry/db";
+import { prisma, type PrismaClient, type UserStatus } from "@finnberry/db";
 import { idSchema } from "@finnberry/schemas";
 
 export type TRPCContext = {
@@ -12,6 +12,8 @@ export type TRPCContext = {
       email?: string | null;
       name?: string | null;
       image?: string | null;
+      status: UserStatus;
+      isAdmin: boolean;
     };
   } | null;
   headers: Headers;
@@ -63,6 +65,14 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
+  // Signing in is open to anyone the providers accept. Using the app is not:
+  // the instance admin approves each account first.
+  if (ctx.session.user.status !== "APPROVED") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Your account has not been approved",
+    });
+  }
   return next({
     ctx: {
       session: { ...ctx.session, user: ctx.session.user },
@@ -73,6 +83,13 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(enforceUserIsAuthed);
+
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.session.user.isAdmin) {
+    throw new TRPCError({ code: "FORBIDDEN" });
+  }
+  return next();
+});
 
 const viaChild = { child: { select: { householdId: true } } } as const;
 

@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { prismaMock } from "../test/setup";
-import { createTestContext, createTestMembership, TEST_IDS } from "../test/helpers";
+import {
+  createTestContext,
+  createTestMembership,
+  createTestUser,
+  TEST_IDS,
+} from "../test/helpers";
 import { createCallerFactory } from "../trpc";
 import { userRouter } from "./user";
 
@@ -66,6 +71,17 @@ describe("userRouter", () => {
   });
 
   describe("delete", () => {
+    it("refuses to delete the admin account", async () => {
+      const caller = createCaller(
+        createTestContext({ session: createTestUser({ user: { isAdmin: true } }) })
+      );
+
+      await expect(
+        caller.delete({ confirmEmail: "test@example.com" })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+
     it("throws BAD_REQUEST when email confirmation does not match", async () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);

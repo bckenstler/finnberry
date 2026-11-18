@@ -130,6 +130,7 @@ The app will be available at `http://localhost:3000`.
 | Variable | Description |
 |----------|-------------|
 | `NEXTAUTH_URL` | App URL - required for production, auto-detected in dev |
+| `ADMIN_EMAIL` | The only address allowed to become the instance admin (see [Accounts and Approval](#accounts-and-approval)) |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
@@ -149,6 +150,22 @@ EMAIL_SERVER="smtps://resend:re_YOUR_API_KEY@smtp.resend.com:465"
 
 # Gmail (requires app password)
 EMAIL_SERVER="smtps://you@gmail.com:app-password@smtp.gmail.com:465"
+```
+
+## Accounts and Approval
+
+Anyone who can use one of the configured sign-in methods can sign in, but a new account can do nothing until the instance admin approves it. This keeps a public deployment private to the people you choose.
+
+- **The admin** is the first account to sign in. To make sure that is you and not whoever finds the login page first, set `ADMIN_EMAIL` to your address before deploying: then only that address can become the admin, whenever it signs in. There is one admin per instance.
+- **Everyone else** lands on a "Waiting for approval" page after signing in. This includes people invited to a household.
+- **The admin approves or rejects accounts** under **Accounts** in the avatar menu. An approved account can be revoked at any time; revoking or rejecting also signs the account out, and it takes effect on the next request.
+- Google sign-in is accepted only for addresses Google reports as verified.
+
+The admin account cannot be rejected or deleted from the app. To hand the role to a different address, clear it in the database, set `ADMIN_EMAIL` to the new address, and sign in with it:
+
+```sql
+DELETE FROM instance_admin_claims;
+UPDATE users SET is_admin = false WHERE is_admin;
 ```
 
 ## Supabase Setup

@@ -108,7 +108,7 @@ describe("POST /api/chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
-    mocks.auth.mockResolvedValue({ user: { id: "user-1" } });
+    mocks.auth.mockResolvedValue({ user: { id: "user-1", status: "APPROVED" } });
     mocks.findChild.mockResolvedValue({
       id: SESSION_CHILD_ID,
       name: "Test Baby",
@@ -132,6 +132,18 @@ describe("POST /api/chat", () => {
     );
 
     expect(response.status).toBe(401);
+    expect(mocks.streamMessage).not.toHaveBeenCalled();
+  });
+
+  it.each(["PENDING", "REJECTED"])("rejects a %s account", async (status) => {
+    mocks.auth.mockResolvedValue({ user: { id: "user-1", status } });
+
+    const response = await POST(
+      chatRequest({ childId: SESSION_CHILD_ID, message: "hi" })
+    );
+
+    expect(response.status).toBe(403);
+    expect(mocks.findChild).not.toHaveBeenCalled();
     expect(mocks.streamMessage).not.toHaveBeenCalled();
   });
 

@@ -11,13 +11,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Cherry, LogOut, Settings, User } from "lucide-react";
+import { Cherry, LogOut, Settings, ShieldCheck, User } from "lucide-react";
 
 interface DashboardNavProps {
   user: {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    isAdmin?: boolean;
   };
 }
 
@@ -69,6 +70,14 @@ export function DashboardNav({ user }: DashboardNavProps) {
                 Household Settings
               </Link>
             </DropdownMenuItem>
+            {user.isAdmin && (
+              <DropdownMenuItem asChild>
+                <Link href="/dashboard/admin" className="cursor-pointer">
+                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  Accounts
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem
               className="cursor-pointer text-destructive focus:text-destructive"

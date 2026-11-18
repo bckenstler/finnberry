@@ -251,6 +251,13 @@ export async function POST(request: Request) {
       });
     }
 
+    if (session.user.status !== "APPROVED") {
+      return new Response(JSON.stringify({ error: "Account not approved" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
     const chatRequest = await parseChatRequest(request);
     if (chatRequest instanceof Response) return chatRequest;
     const { childId, model } = chatRequest;

@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { prismaMock } from "./test/setup";
 import {
   createTestContext,
+  createTestUser,
   createUnauthenticatedContext,
   createTestMembership,
   createTestChild,
@@ -14,6 +15,7 @@ import {
   createCallerFactory,
   createTRPCRouter,
   protectedProcedure,
+  adminProcedure,
   householdProcedure,
   childProcedure,
   medicineProcedure,
@@ -30,6 +32,9 @@ const describeAccess = ({ ctx }: { ctx: { householdId: string; memberRole: strin
 // Create test routers for middleware testing
 const testRouter = createTRPCRouter({
   protectedTest: protectedProcedure.query(() => {
+    return { success: true };
+  }),
+  adminTest: adminProcedure.query(() => {
     return { success: true };
   }),
   householdTest: householdProcedure.query(describeAccess),
@@ -60,6 +65,60 @@ describe("protectedProcedure middleware", () => {
 
     const result = await caller.protectedTest();
     expect(result).toEqual({ success: true });
+  });
+});
+
+describe("account approval", () => {
+  const callerWith = (user: Parameters<typeof createTestUser>[0]) =>
+    createCaller(createTestContext({ session: createTestUser(user) }));
+
+  it.each(["PENDING", "REJECTED"] as const)(
+    "throws FORBIDDEN for a %s account",
+    async (status) => {
+      const caller = callerWith({ user: { status } });
+
+      await expect(caller.protectedTest()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    }
+  );
+
+  it("does not let a pending account reach a household it belongs to", async () => {
+    const caller = callerWith({ user: { status: "PENDING" } });
+    mockMemberships([{ role: "OWNER" }]);
+
+    await expect(
+      caller.householdTest({ householdId: TEST_IDS.householdId })
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(prismaMock.householdMember.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("does not let a pending account use an admin procedure even if flagged admin", async () => {
+    const caller = callerWith({ user: { status: "PENDING", isAdmin: true } });
+
+    await expect(caller.adminTest()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("adminProcedure middleware", () => {
+  it("throws FORBIDDEN for an approved account that is not the admin", async () => {
+    const caller = createCaller(createTestContext());
+
+    await expect(caller.adminTest()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("allows the admin", async () => {
+    const caller = createCaller(
+      createTestContext({ session: createTestUser({ user: { isAdmin: true } }) })
+    );
+
+    await expect(caller.adminTest()).resolves.toEqual({ success: true });
+  });
+
+  it("throws UNAUTHORIZED when no session", async () => {
+    const caller = createCaller(createUnauthenticatedContext());
+
+    await expect(caller.adminTest()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 });
 

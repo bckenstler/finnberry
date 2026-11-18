@@ -50,12 +50,36 @@ model User {
   image         String?
   createdAt     DateTime  @default(now()) @map("created_at")
   updatedAt     DateTime  @updatedAt @map("updated_at")
+  // A new account can sign in but can use nothing until the instance admin
+  // approves it.
+  status        UserStatus @default(PENDING)
+  isAdmin       Boolean    @default(false) @map("is_admin")
 
   accounts          Account[]
   sessions          Session[]
   householdMemberships HouseholdMember[]
+  instanceAdminClaim   InstanceAdminClaim?
 
   @@map("users")
+}
+
+enum UserStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Holds at most one row: the fixed primary key lets exactly one sign-in claim
+// the instance admin role, however many race for it. The row is never
+// deleted, and Restrict keeps the admin's account from being deleted.
+model InstanceAdminClaim {
+  id        Int      @id @default(1)
+  userId    String   @unique @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("instance_admin_claims")
 }
 
 model VerificationToken {

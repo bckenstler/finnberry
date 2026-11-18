@@ -31,7 +31,7 @@ function getBaseUrl(): string {
 }
 
 // Call the test seed API
-async function callTestApi(action: string, data: Record<string, unknown> = {}) {
+export async function callTestApi(action: string, data: Record<string, unknown> = {}) {
   const baseUrl = getBaseUrl();
   const response = await fetch(`${baseUrl}/api/test/seed`, {
     method: "POST",

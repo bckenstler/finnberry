@@ -13,6 +13,10 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
+  if (session.user.status !== "APPROVED") {
+    redirect("/pending");
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <DashboardNav user={session.user} />

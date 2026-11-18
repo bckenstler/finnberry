@@ -19,13 +19,17 @@ export const TEST_IDS = {
   temperatureId: "clq1234567890abcdefghij14",
 } as const;
 
-export function createTestUser(overrides?: Partial<TRPCContext["session"]>) {
+type SessionUser = NonNullable<TRPCContext["session"]>["user"];
+
+export function createTestUser(overrides?: { user?: Partial<SessionUser> }) {
   return {
     user: {
       id: TEST_IDS.userId,
       email: "test@example.com",
       name: "Test User",
       image: null,
+      status: "APPROVED" as const,
+      isAdmin: false,
       ...overrides?.user,
     },
   };
