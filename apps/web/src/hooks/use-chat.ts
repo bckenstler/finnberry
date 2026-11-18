@@ -38,6 +38,9 @@ export type ModelId = "haiku" | "sonnet" | "opus";
 
 interface UseChatOptions {
   childId: string;
+  // The models the deployment offers. A selection outside the list falls
+  // back to the first one offered.
+  allowedModels?: ModelId[];
   onError?: (error: Error) => void;
 }
 
@@ -52,11 +55,13 @@ interface UseChatReturn {
   clearMessages: () => void;
 }
 
-export function useChat({ childId, onError }: UseChatOptions): UseChatReturn {
+export function useChat({ childId, allowedModels, onError }: UseChatOptions): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
-  const [model, setModel] = useState<ModelId>("sonnet");
+  const [selectedModel, setModel] = useState<ModelId>("sonnet");
+  const isSelectionOffered = !allowedModels || allowedModels.includes(selectedModel);
+  const model = isSelectionOffered ? selectedModel : (allowedModels[0] ?? selectedModel);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(

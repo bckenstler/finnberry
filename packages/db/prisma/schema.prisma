@@ -59,6 +59,7 @@ model User {
   sessions          Session[]
   householdMemberships HouseholdMember[]
   instanceAdminClaim   InstanceAdminClaim?
+  chatUsage            ChatUsage[]
 
   @@map("users")
 }
@@ -67,6 +68,20 @@ enum UserStatus {
   PENDING
   APPROVED
   REJECTED
+}
+
+// One row per user per UTC day: how much of the operator's Anthropic budget
+// the user's chat has spent, counted in model calls and in tokens.
+model ChatUsage {
+  userId     String   @map("user_id")
+  day        DateTime @db.Date
+  modelCalls Int      @default(0) @map("model_calls")
+  tokens     Int      @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, day])
+  @@map("chat_usage")
 }
 
 // Holds at most one row: the fixed primary key lets exactly one sign-in claim

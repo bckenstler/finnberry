@@ -14,6 +14,7 @@ function AuthErrorContent() {
     Configuration: "There is a problem with the server configuration.",
     AccessDenied: "You do not have permission to sign in.",
     Verification: "The verification link has expired or has already been used.",
+    TooManyRequests: "Too many sign-in links have been requested. Wait a few minutes and try again.",
     Default: "An error occurred during authentication.",
   };
 

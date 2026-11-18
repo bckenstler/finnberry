@@ -94,6 +94,54 @@ describe("userRouter", () => {
       });
     });
 
+    const ownedHouseholdWith = (others: Array<{ userId: string; role: string }>) =>
+      prismaMock.householdMember.findMany.mockResolvedValue([
+        {
+          ...createTestMembership({ role: "OWNER" }),
+          household: {
+            id: TEST_IDS.householdId,
+            name: "Test Household",
+            members: [
+              createTestMembership({ role: "OWNER" }),
+              ...others.map((other) => createTestMembership(other)),
+            ],
+          },
+        },
+      ] as never);
+
+    it("hands ownership to a caregiver when there is no admin", async () => {
+      const caller = createCaller(createTestContext());
+      ownedHouseholdWith([
+        { userId: "viewer-user", role: "VIEWER" },
+        { userId: "caregiver-user", role: "CAREGIVER" },
+      ]);
+
+      await caller.delete({ confirmEmail: "test@example.com" });
+
+      expect(prismaMock.householdMember.update).toHaveBeenCalledWith({
+        where: {
+          householdId_userId: {
+            householdId: TEST_IDS.householdId,
+            userId: "caregiver-user",
+          },
+        },
+        data: { role: "OWNER" },
+      });
+    });
+
+    it("does not promote a viewer to owner, and deletes nothing", async () => {
+      const caller = createCaller(createTestContext());
+      ownedHouseholdWith([{ userId: "viewer-user", role: "VIEWER" }]);
+
+      await expect(
+        caller.delete({ confirmEmail: "test@example.com" })
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+
+      expect(prismaMock.householdMember.update).not.toHaveBeenCalled();
+      expect(prismaMock.household.delete).not.toHaveBeenCalled();
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+
     it("deletes user and transfers household ownership", async () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);

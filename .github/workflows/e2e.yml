@@ -64,6 +64,10 @@ jobs:
           AUTH_SECRET: test-secret-for-ci-only
           BASE_URL: http://localhost:3000
           ENABLE_TEST_SEED: "1"
+          # Nothing listens here. It makes the login page offer the email
+          # form, which the auth specs exercise without reading any mail.
+          EMAIL_SERVER: smtp://localhost:1025
+          EMAIL_FROM: noreply@example.com
           TEST_SEED_SECRET: test-seed-secret-for-ci-only
 
       - uses: actions/upload-artifact@v4

@@ -40,6 +40,8 @@ interface ChatInterfaceProps {
   isLoading?: boolean;
   disabled?: boolean;
   model?: ModelId;
+  // The models to offer in the picker. All of them when not given.
+  models?: ModelId[];
   onModelChange?: (model: ModelId) => void;
   className?: string;
 }
@@ -52,9 +54,13 @@ export function ChatInterface({
   isLoading,
   disabled,
   model = "sonnet",
+  models,
   onModelChange,
   className,
 }: ChatInterfaceProps) {
+  const modelOptions = MODEL_OPTIONS.filter(
+    (option) => !models || models.includes(option.value)
+  );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -117,7 +123,7 @@ export function ChatInterface({
           placeholder="Ask Finnberry anything..."
         />
         <div className="flex items-center justify-between">
-          {onModelChange && (
+          {onModelChange && modelOptions.length > 1 && (
             <div className="flex items-center gap-2">
               <span className="text-xs text-muted-foreground">Model:</span>
               <Select
@@ -129,7 +135,7 @@ export function ChatInterface({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODEL_OPTIONS.map((option) => (
+                  {modelOptions.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>

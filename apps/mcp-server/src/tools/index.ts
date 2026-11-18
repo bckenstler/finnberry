@@ -1208,6 +1208,18 @@ export function registerTools(): Tool[] {
   ];
 }
 
+// The text returned here goes to the model and on to the person chatting. A
+// handler's own error says what was wrong with the request. A Prisma error
+// describes the query and the schema, so it is logged and replaced.
+function describeToolError(error: unknown): string {
+  if (!(error instanceof Error)) return "The tool failed.";
+  if (error.name.startsWith("PrismaClient")) {
+    console.error("Tool database error:", error);
+    return "The record could not be found or saved.";
+  }
+  return error.message;
+}
+
 export async function handleToolCall(
   name: string,
   args: Record<string, unknown>,
@@ -1270,12 +1282,7 @@ export async function handleToolCall(
     };
   } catch (error) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
+      content: [{ type: "text", text: `Error: ${describeToolError(error)}` }],
     };
   }
 }

@@ -8,6 +8,11 @@ import {
   type ChatModel,
   type ChatRequest,
 } from "@finnberry/schemas";
+import {
+  getAllowedChatModels,
+  recordTokens,
+  reserveModelCall,
+} from "@/lib/chat-usage";
 
 export const runtime = "nodejs";
 // Configure based on your Vercel plan: Hobby=10, Pro=60, Enterprise=900
@@ -18,6 +23,35 @@ const MODEL_MAP: Record<ChatModel, string> = {
   sonnet: "claude-sonnet-4-5-20250929",
   opus: "claude-opus-4-5-20251101",
 };
+
+// One request is one user message. The model may call tools and be called
+// again with the results, and this bounds how many times.
+const MAX_MODEL_CALLS_PER_REQUEST = 8;
+
+const DAILY_LIMIT_MESSAGE =
+  "You have reached today's chat limit. It resets at midnight UTC.";
+// Failures are logged in full on the server. The client gets this, because an
+// SDK or database error message can carry internals.
+const GENERIC_ERROR_MESSAGE = "Something went wrong. Please try again.";
+
+function jsonResponse(body: Record<string, unknown>, status: number): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// Tells the chat UI which models this deployment offers.
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return jsonResponse({ error: "Unauthorized" }, 401);
+  }
+  if (session.user.status !== "APPROVED") {
+    return jsonResponse({ error: "Account not approved" }, 403);
+  }
+  return jsonResponse({ models: getAllowedChatModels() }, 200);
+}
 
 // Above the image caps in chatRequestSchema, with room for text and JSON.
 const MAX_BODY_BYTES = 6 * 1024 * 1024;
@@ -240,6 +274,9 @@ function formatAge(birthDate: Date): string {
   }
 }
 
+// Ends the conversation early with a message written for the user.
+class ChatStopped extends Error {}
+
 export async function POST(request: Request) {
   try {
     // Validate session
@@ -261,6 +298,11 @@ export async function POST(request: Request) {
     const chatRequest = await parseChatRequest(request);
     if (chatRequest instanceof Response) return chatRequest;
     const { childId, model } = chatRequest;
+    const userId = session.user.id;
+
+    if (!getAllowedChatModels().includes(model)) {
+      return jsonResponse({ error: "That model is not available" }, 400);
+    }
 
     // Verify user has access to this child via household membership
     const child = await prisma.child.findUnique({
@@ -298,6 +340,10 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!(await reserveModelCall(userId))) {
+      return jsonResponse({ error: DAILY_LIMIT_MESSAGE }, 429);
+    }
+
     const anthropic = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
@@ -320,6 +366,8 @@ export async function POST(request: Request) {
         try {
           let currentMessages = [...messages];
           let continueLoop = true;
+          // The first model call was reserved before the stream opened.
+          let modelCalls = 1;
 
           while (continueLoop) {
             // Create a streaming message
@@ -369,6 +417,7 @@ export async function POST(request: Request) {
 
             // Get the final message
             fullResponse = await streamResponse.finalMessage();
+            await recordTokens(userId, fullResponse.usage);
 
             // Check if we need to handle tool use
             const toolUseBlocks = fullResponse.content.filter(
@@ -446,6 +495,16 @@ export async function POST(request: Request) {
                 { role: "assistant" as const, content: fullResponse.content },
                 { role: "user" as const, content: toolResults },
               ];
+
+              modelCalls += 1;
+              if (modelCalls > MAX_MODEL_CALLS_PER_REQUEST) {
+                throw new ChatStopped(
+                  "That took more steps than one message allows. Try asking for less at once."
+                );
+              }
+              if (!(await reserveModelCall(userId))) {
+                throw new ChatStopped(DAILY_LIMIT_MESSAGE);
+              }
             } else {
               // No more tool use, we're done
               continueLoop = false;
@@ -459,7 +518,7 @@ export async function POST(request: Request) {
           console.error("Chat stream error:", error);
           const errorMessage = JSON.stringify({
             type: "error",
-            error: error instanceof Error ? error.message : "Unknown error",
+            error: error instanceof ChatStopped ? error.message : GENERIC_ERROR_MESSAGE,
           });
           controller.enqueue(encoder.encode(`data: ${errorMessage}\n\n`));
           controller.close();
@@ -476,14 +535,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Chat API error:", error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : "Internal server error",
-      }),
-      {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      }
-    );
+    return jsonResponse({ error: GENERIC_ERROR_MESSAGE }, 500);
   }
 }

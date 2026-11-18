@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc/provider";
 import { Button } from "@/components/ui/button";
 import { ChatInterface } from "@/components/chat";
 import { useChat } from "@/hooks/use-chat";
+import { useAllowedChatModels } from "@/hooks/use-allowed-chat-models";
 import { useToast } from "@/hooks/use-toast";
 
 export default function ChatPage({
@@ -21,8 +22,10 @@ export default function ChatPage({
     id: childId,
   });
 
+  const allowedModels = useAllowedChatModels();
   const { messages, isLoading, sendMessage, stop, clearMessages } = useChat({
     childId,
+    allowedModels,
     onError: (error) => {
       toast({
         title: "Error",

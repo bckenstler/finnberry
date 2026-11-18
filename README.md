@@ -135,6 +135,9 @@ The app will be available at `http://localhost:3000`.
 | `EMAIL_SERVER` | SMTP connection string for magic link emails |
 | `EMAIL_FROM` | Sender email address for magic links |
 | `ANTHROPIC_API_KEY` | Anthropic API key for AI Chat feature |
+| `CHAT_ALLOWED_MODELS` | Models offered in chat, comma separated. Default `haiku,sonnet` |
+| `CHAT_DAILY_REQUEST_LIMIT` | Model calls each user may make per day. Default `200` |
+| `CHAT_DAILY_TOKEN_LIMIT` | Tokens each user may use per day. Default `2000000` |
 
 ### Email Configuration
 
@@ -237,8 +240,13 @@ Because links are built from this value and not from the request, a forged Host 
 **Security Best Practices**:
 - Use HTTPS in production (via reverse proxy with Let's Encrypt)
 - Don't expose the app directly to the internet without proper security
-- Use strong passwords for database and `NEXTAUTH_SECRET`
+- Use a strong database password and a generated `AUTH_SECRET`
+- Set `ADMIN_EMAIL` so that only you can become the instance admin
 - Keep dependencies updated
+
+A production server refuses to serve anything if `AUTH_SECRET` is missing, shorter than 32 characters, or still the example value, if `NEXTAUTH_URL` is not set, or if the test seed endpoint is switched on. Every request gets an error, and the server log names what to fix.
+
+Every response carries a Content Security Policy and related headers that forbid framing by other sites and loading scripts from other origins. Requests for sign-in links are limited to 3 per address in 10 minutes and 100 per hour across the instance.
 
 ## AI Chat Interface
 
@@ -250,7 +258,7 @@ The dashboard includes a Chat tab that allows natural language interaction with 
 - **Query Data**: Ask "What did the baby do today?" or "How much sleep did the baby get this week?"
 - **Photos**: Attach up to 4 photos (a handwritten log, a daycare sheet, a screenshot from another app, a thermometer) and the assistant reads the entries and offers to log them. It lists what it read and asks before logging more than one entry. Photos are resized in the browser, sent to Anthropic with the message, and not stored by Finnberry
 - **Streaming Responses**: Real-time streaming of AI responses with tool execution visualization
-- **Model Selection**: Choose between Haiku (fast), Sonnet (balanced), or Opus (most capable)
+- **Model Selection**: Choose between Haiku (fast) and Sonnet (balanced). Opus (most capable) is available when the deployment allows it
 
 ### Setup
 
@@ -260,6 +268,16 @@ The dashboard includes a Chat tab that allows natural language interaction with 
    ANTHROPIC_API_KEY=sk-ant-...
    ```
 3. The Chat tab will appear in the dashboard alongside Home and Reports
+
+### Usage Limits
+
+Chat runs on your Anthropic API key, so every approved user's chat is paid for by you. Each user has a daily allowance, counted in UTC days:
+
+- `CHAT_DAILY_REQUEST_LIMIT` caps model calls. One message uses one call, plus one more for each round of tool use, up to 8 per message.
+- `CHAT_DAILY_TOKEN_LIMIT` caps tokens, counting input and output.
+- `CHAT_ALLOWED_MODELS` chooses which of `haiku`, `sonnet` and `opus` the picker offers. Opus costs several times what the others do and is off unless listed.
+
+A user who reaches a limit is told so and can chat again the next day.
 
 A message with photos can be a few megabytes. If the app sits behind a reverse proxy, allow request bodies of at least 6 MB (nginx: `client_max_body_size 6m;`, its default is 1 MB).
 

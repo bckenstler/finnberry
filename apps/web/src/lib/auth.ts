@@ -4,6 +4,7 @@ import Google from "next-auth/providers/google";
 import Nodemailer from "next-auth/providers/nodemailer";
 import { prisma, type UserStatus } from "@finnberry/db";
 import { claimInstanceAdmin } from "./instance-admin";
+import { MAGIC_LINK_MAX_AGE_SECONDS, mayRequestMagicLink } from "./magic-link-throttle";
 
 // Columns of the users table that the Auth.js adapter user type does not list.
 interface AccountAccess {
@@ -19,6 +20,7 @@ if (process.env.EMAIL_SERVER) {
     Nodemailer({
       server: process.env.EMAIL_SERVER,
       from: process.env.EMAIL_FROM,
+      maxAge: MAGIC_LINK_MAX_AGE_SECONDS,
     })
   );
 }
@@ -38,7 +40,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers,
   pages: {
     signIn: "/login",
-    signOut: "/logout",
     error: "/auth/error",
     verifyRequest: "/auth/verify-request",
   },
@@ -46,8 +47,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     // Invites and the ADMIN_EMAIL pin both trust the account's email address,
     // so an address Google has not verified cannot sign in. A magic link
     // proves the address by being received.
-    signIn: ({ account, profile }) =>
-      account?.provider !== "google" || profile?.email_verified === true,
+    signIn: async ({ user, account, profile, email }) => {
+      // This callback also runs when a magic link is requested, before any
+      // mail is sent. That is the point to refuse a flood of requests.
+      if (email?.verificationRequest) {
+        const mayRequest = !!user.email && (await mayRequestMagicLink(user.email));
+        return mayRequest || "/auth/error?error=TooManyRequests";
+      }
+      return account?.provider !== "google" || profile?.email_verified === true;
+    },
     // With database sessions `user` is the row read for this request, so a
     // change of status or admin takes effect on the next request.
     session: ({ session, user }) => {

@@ -51,7 +51,7 @@ finnberry/
 │
 ├── packages/
 │   ├── db/                      # Prisma schema + client
-│   │   ├── prisma/schema.prisma # Database schema (18 models)
+│   │   ├── prisma/schema.prisma # Database schema (19 models)
 │   │   └── src/index.ts         # Prisma client singleton
 │   │
 │   ├── api/                     # tRPC routers
@@ -219,6 +219,12 @@ Signing in is open; using the app is not. `User.status` starts `PENDING` and the
 - `adminProcedure` and `packages/api/src/routers/admin.ts` back the Accounts page (`dashboard/admin`). Rejecting an account deletes its sessions
 - The user-facing description, including how to hand the admin role over, is in the README under "Accounts and Approval"
 
+### Configuration Hardening
+
+- `apps/web/src/lib/env.ts`, called from `src/instrumentation.ts`, makes a production server fail every request (and log why) when started with a missing, short or placeholder `AUTH_SECRET`, no `NEXTAUTH_URL`, or `ENABLE_TEST_SEED` set. It is skipped during `next build`
+- `apps/web/next.config.ts` sets the Content Security Policy and other security headers. A new external origin (script, API, websocket) must be added to the policy there or the browser blocks it
+- `apps/web/src/lib/magic-link-throttle.ts` limits sign-in link requests per address and per instance, called from the `signIn` callback
+
 ### Timer System
 
 Timers persist in localStorage via Zustand (`apps/web/src/stores/timer-store.ts`):
@@ -234,7 +240,9 @@ Timers persist in localStorage via Zustand (`apps/web/src/stores/timer-store.ts`
 The dashboard includes a Chat tab (`apps/web/src/components/chat/`) for natural language interaction:
 - Uses Anthropic SDK with streaming responses (`/api/chat` route)
 - Tool calling for logging activities and querying data
-- Model selection (Haiku, Sonnet, Opus)
+- Model selection, limited to `CHAT_ALLOWED_MODELS` (default Haiku and Sonnet). `GET /api/chat` tells the UI which are offered
+- Per-user daily limits in `apps/web/src/lib/chat-usage.ts`, stored in `ChatUsage`: each model call is reserved before it is made, tokens are recorded after, and one message may make at most 8 model calls. Defaults and env names are in the README under "Usage Limits"
+- Errors sent to the client are generic; the real error is logged. `handleToolCall` passes on a handler's own message but replaces Prisma errors
 - Streaming text and tool execution visualization
 - Image attachments: the browser resizes each photo to a JPEG (`apps/web/src/lib/image.ts`) and sends it base64 in the request; the route passes it to the model as an image block. Images are not stored. History resends images only for the latest turn that had any, and only until a tool call succeeds after it
 - The request body is validated by `chatRequestSchema` (`packages/schemas/src/chat.ts`), which owns the image count and size limits
@@ -278,6 +286,7 @@ Key models in `packages/db/prisma/schema.prisma`:
 - `Household`, `HouseholdMember`, `HouseholdInvite` - Multi-caregiver
 - `Child` - Child profiles
 - `SleepRecord`, `FeedingRecord`, `DiaperRecord` - Core tracking
+- `ChatUsage` - Per-user, per-day chat usage for the spend limits
 - `PumpingRecord`, `GrowthRecord`, `ActivityRecord`, `TemperatureRecord` - Extended tracking
 - `Medicine`, `MedicineRecord` - Medicine tracking
 
@@ -365,6 +374,9 @@ GOOGLE_CLIENT_SECRET=
 EMAIL_SERVER=            # SMTP connection string for magic links
 EMAIL_FROM=              # Sender email address
 ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
+CHAT_ALLOWED_MODELS=     # Chat models offered, default haiku,sonnet
+CHAT_DAILY_REQUEST_LIMIT=  # Per-user model calls per day, default 200
+CHAT_DAILY_TOKEN_LIMIT=  # Per-user tokens per day, default 2000000
 ```
 
 ## Testing the MCP Server

@@ -6,6 +6,7 @@ const FOREIGN_CHILD_ID = "child-in-another-household";
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
   findChild: vi.fn(),
+  upsertUsage: vi.fn(),
   handleToolCall: vi.fn(),
   streamMessage: vi.fn(),
 }));
@@ -13,7 +14,10 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
 
 vi.mock("@finnberry/db", () => ({
-  prisma: { child: { findUnique: mocks.findChild } },
+  prisma: {
+    child: { findUnique: mocks.findChild },
+    chatUsage: { upsert: mocks.upsertUsage },
+  },
 }));
 
 vi.mock("@anthropic-ai/sdk", () => ({
@@ -60,7 +64,7 @@ vi.mock("@finnberry/mcp-server/tools", () => ({
   handleToolCall: mocks.handleToolCall,
 }));
 
-import { POST } from "./route";
+import { GET, POST } from "./route";
 
 interface ToolCall {
   name: string;
@@ -73,6 +77,7 @@ function modelTurn(toolCalls: ToolCall[]) {
     [Symbol.asyncIterator]: async function* () {},
     finalMessage: async () => ({
       stop_reason: toolCalls.length > 0 ? "tool_use" : "end_turn",
+      usage: { input_tokens: 100, output_tokens: 20 },
       content: toolCalls.map((call, index) => ({
         type: "tool_use",
         id: `toolu_${index}`,
@@ -107,6 +112,8 @@ async function readEvents(response: Response) {
 describe("POST /api/chat", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Also drops an implementation an earlier test installed.
+    mocks.streamMessage.mockReset();
     vi.stubEnv("ANTHROPIC_API_KEY", "test-key");
     mocks.auth.mockResolvedValue({ user: { id: "user-1", status: "APPROVED" } });
     mocks.findChild.mockResolvedValue({
@@ -115,6 +122,7 @@ describe("POST /api/chat", () => {
       birthDate: new Date("2024-01-01"),
       household: { members: [{ userId: "user-1", role: "CAREGIVER" }] },
     });
+    mocks.upsertUsage.mockResolvedValue({ modelCalls: 1, tokens: 0 });
     mocks.handleToolCall.mockResolvedValue({
       content: [{ type: "text", text: "ok" }],
     });
@@ -281,6 +289,158 @@ describe("POST /api/chat", () => {
       expect(events).toContainEqual(
         expect.objectContaining({ type: "tool_error", name: "log-diaper" })
       );
+    });
+  });
+
+  describe("usage limits", () => {
+    const reservations = () =>
+      mocks.upsertUsage.mock.calls.filter(([args]) => "modelCalls" in args.create);
+    const tokenRecords = () =>
+      mocks.upsertUsage.mock.calls.filter(([args]) => "tokens" in args.create);
+
+    it("counts each model call and records the tokens it used", async () => {
+      modelCallsTools([{ name: "log-diaper", input: { diaperType: "WET" } }]);
+
+      await readEvents(
+        await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "log it" }))
+      );
+
+      expect(reservations()).toHaveLength(2);
+      expect(tokenRecords()).toHaveLength(2);
+      expect(tokenRecords()[0]![0]).toMatchObject({
+        where: { userId_day: { userId: "user-1" } },
+        create: { tokens: 120 },
+        update: { tokens: { increment: 120 } },
+      });
+    });
+
+    it("refuses a request once today's model calls are used up", async () => {
+      vi.stubEnv("CHAT_DAILY_REQUEST_LIMIT", "5");
+      mocks.upsertUsage.mockResolvedValue({ modelCalls: 6, tokens: 0 });
+
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi" })
+      );
+
+      expect(response.status).toBe(429);
+      expect(mocks.streamMessage).not.toHaveBeenCalled();
+    });
+
+    it("refuses a request once today's tokens are used up", async () => {
+      vi.stubEnv("CHAT_DAILY_TOKEN_LIMIT", "1000");
+      mocks.upsertUsage.mockResolvedValue({ modelCalls: 1, tokens: 1000 });
+
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi" })
+      );
+
+      expect(response.status).toBe(429);
+      expect(mocks.streamMessage).not.toHaveBeenCalled();
+    });
+
+    it("stops mid-conversation when the limit is reached between tool rounds", async () => {
+      vi.stubEnv("CHAT_DAILY_REQUEST_LIMIT", "5");
+      mocks.upsertUsage
+        .mockResolvedValueOnce({ modelCalls: 5, tokens: 0 })
+        .mockResolvedValue({ modelCalls: 6, tokens: 0 });
+      modelCallsTools([{ name: "log-diaper", input: { diaperType: "WET" } }]);
+
+      const events = await readEvents(
+        await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "log it" }))
+      );
+
+      expect(mocks.streamMessage).toHaveBeenCalledTimes(1);
+      expect(events.at(-1)).toMatchObject({
+        type: "error",
+        error: expect.stringContaining("chat limit"),
+      });
+    });
+
+    it("stops a conversation whose tool calls never end", async () => {
+      mocks.streamMessage.mockImplementation(() =>
+        modelTurn([{ name: "query-sleep-records", input: {} }])
+      );
+
+      const events = await readEvents(
+        await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "loop" }))
+      );
+
+      expect(mocks.streamMessage).toHaveBeenCalledTimes(8);
+      expect(events.at(-1)).toMatchObject({
+        type: "error",
+        error: expect.stringContaining("more steps"),
+      });
+    });
+  });
+
+  describe("model selection", () => {
+    it("refuses a model the deployment does not offer", async () => {
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi", model: "opus" })
+      );
+
+      expect(response.status).toBe(400);
+      expect(mocks.upsertUsage).not.toHaveBeenCalled();
+      expect(mocks.streamMessage).not.toHaveBeenCalled();
+    });
+
+    it("accepts a model the operator has allowed", async () => {
+      vi.stubEnv("CHAT_ALLOWED_MODELS", "haiku, opus");
+      modelCallsTools([]);
+
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi", model: "opus" })
+      );
+      await readEvents(response);
+
+      expect(response.status).toBe(200);
+      expect(mocks.streamMessage.mock.calls[0]![0].model).toContain("opus");
+    });
+
+    it("tells a signed-in user which models are offered", async () => {
+      vi.stubEnv("CHAT_ALLOWED_MODELS", "haiku,not-a-model");
+
+      const response = await GET();
+
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ models: ["haiku"] });
+    });
+
+    it("does not tell an unapproved account which models are offered", async () => {
+      mocks.auth.mockResolvedValue({ user: { id: "user-1", status: "PENDING" } });
+
+      expect((await GET()).status).toBe(403);
+    });
+  });
+
+  describe("error messages", () => {
+    const INTERNAL_DETAIL = "connect ECONNREFUSED db.internal:5432";
+
+    it("does not send a failure's internal message to the client mid-stream", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.streamMessage.mockImplementation(() => {
+        throw new Error(INTERNAL_DETAIL);
+      });
+
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi" })
+      );
+      const body = await response.text();
+
+      expect(body).toContain('"type":"error"');
+      expect(body).not.toContain("ECONNREFUSED");
+    });
+
+    it("does not send a failure's internal message before the stream opens", async () => {
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.findChild.mockRejectedValue(new Error(INTERNAL_DETAIL));
+
+      const response = await POST(
+        chatRequest({ childId: SESSION_CHILD_ID, message: "hi" })
+      );
+
+      expect(response.status).toBe(500);
+      expect(await response.text()).not.toContain("ECONNREFUSED");
     });
   });
 
