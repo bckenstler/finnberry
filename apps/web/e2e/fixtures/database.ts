@@ -35,7 +35,10 @@ export async function callTestApi(action: string, data: Record<string, unknown> 
   const baseUrl = getBaseUrl();
   const response = await fetch(`${baseUrl}/api/test/seed`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "x-test-seed-secret": process.env.TEST_SEED_SECRET ?? "",
+    },
     body: JSON.stringify({ action, ...data }),
   });
 
@@ -106,7 +109,7 @@ export async function seedTestData(_page: Page): Promise<TestData> {
 // Cleanup test data after tests
 export async function cleanupTestData(_page: Page): Promise<void> {
   try {
-    await callTestApi("cleanup", { prefix: TEST_PREFIX });
+    await callTestApi("cleanup");
   } catch (error) {
     // Ignore cleanup errors - data may already be cleaned up
     console.warn("Cleanup warning:", error);

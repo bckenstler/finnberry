@@ -4,7 +4,7 @@ This file provides context for Claude when working on this codebase.
 
 ## Project Overview
 
-Finnberry is an open-source baby tracking application (clone of Huckleberry) with MCP integration. It helps parents track sleep, feeding, diapers, pumping, growth, temperature, activities, and medicine with real-time sync across caregivers.
+Finnberry is an open-source baby tracking application (clone of Huckleberry) with MCP integration. It helps parents track sleep, feeding, diapers, pumping, growth, temperature, activities, and medicine with sync across caregivers.
 
 ## Tech Stack
 
@@ -16,7 +16,7 @@ Finnberry is an open-source baby tracking application (clone of Huckleberry) wit
 - **Auth**: NextAuth.js v5 (email magic link + Google OAuth)
 - **Styling**: Tailwind CSS 4 + shadcn/ui components
 - **State**: Zustand with localStorage persistence
-- **Real-time**: Supabase Realtime WebSocket subscriptions
+- **Caregiver sync**: React Query polling and refetch on focus
 - **MCP**: @modelcontextprotocol/sdk for AI agent integration
 - **Monorepo**: Turborepo with pnpm workspaces
 
@@ -37,7 +37,7 @@ finnberry/
 │   │   │   │   ├── reports/     # Day/week/list views, activity rows, timeline
 │   │   │   │   ├── chat/        # AI chat interface components
 │   │   │   │   └── dashboard/   # Dashboard layout, child selector
-│   │   │   ├── hooks/           # React hooks (use-timer, use-toast, use-realtime, use-chat)
+│   │   │   ├── hooks/           # React hooks (use-timer, use-toast, use-chat)
 │   │   │   ├── lib/             # Config (auth, trpc, supabase, utils)
 │   │   │   └── stores/          # Zustand stores (timer-store)
 │   │   └── package.json
@@ -88,7 +88,7 @@ pnpm --filter @finnberry/mcp-server build
 
 # Database
 pnpm db:generate            # Generate Prisma client
-pnpm db:push                # Push schema to database (no migration)
+pnpm db:push                # Push schema to database (no migration), then apply prisma/rls.sql
 pnpm db:migrate             # Run database migrations
 pnpm --filter @finnberry/db db:studio  # Open Prisma Studio
 
@@ -181,7 +181,8 @@ import { TEST_IDS } from "../test/helpers";
 ### E2E Test Infrastructure
 
 E2E tests use a test seed API (`/api/test/seed`) to create real database records:
-- Only available in development/test environments
+- Answers only outside a production build, with `ENABLE_TEST_SEED=1`, to a caller sending `TEST_SEED_SECRET` (16+ characters) in the `x-test-seed-secret` header; otherwise it returns 404. Put both variables in `apps/web/.env`: the dev server and Playwright both read it
+- Only touches users, households and children whose email or name starts with `e2e-test`
 - Creates test users, sessions, households, and children. Test users are created `APPROVED` unless the call passes a `status`
 - Cleanup removes all records prefixed with `e2e-test`
 
@@ -252,12 +253,13 @@ Reports section has three views, all showing all 8 activity types:
 
 The `timeline.ts` router fetches all record types (sleep, feeding, diaper, pumping, medicine, growth, temperature, activity) for each view. Cache invalidation in `activity-row.tsx` ensures all views update after edits/deletes.
 
-### Real-time Sync
+### Caregiver Sync
 
-Supabase Realtime in `apps/web/src/hooks/use-realtime.ts`:
-- Subscribe to postgres_changes on record tables
-- Filter by child_id
-- Invalidate tRPC queries on changes
+Another caregiver's changes arrive by polling: the React Query defaults in `apps/web/src/components/providers.tsx` refetch every query every 30 seconds while the tab is visible, and on window focus. Nothing in the browser connects to Supabase, and the app does not use the Supabase API keys.
+
+### Database Lockdown
+
+Supabase serves every `public` table over a REST API to anyone with the project's anon key unless Row Level Security is on. `packages/db/prisma/rls.sql` enables RLS on every table with no policies (Prisma connects as the owner and is unaffected), revokes the API roles' grants, and empties the Realtime publication. `pnpm db:push` runs it after each push, so a new table is covered automatically; do not create tables by another route without running `pnpm db:rls`.
 
 ### MCP Server
 
@@ -360,9 +362,6 @@ NEXTAUTH_URL=            # http://localhost:3000 for dev (auto-detected if not s
 ADMIN_EMAIL=             # Only this address can become the instance admin
 GOOGLE_CLIENT_ID=        # For Google OAuth
 GOOGLE_CLIENT_SECRET=
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=  # Server-side Supabase access
 EMAIL_SERVER=            # SMTP connection string for magic links
 EMAIL_FROM=              # Sender email address
 ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
@@ -414,8 +413,6 @@ ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
 | `ADMIN_EMAIL` | The only address allowed to become the instance admin |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (for realtime) |
 | `EMAIL_SERVER` | SMTP connection string for magic links |
 | `EMAIL_FROM` | Sender email address |
 | `ANTHROPIC_API_KEY` | Anthropic API key for AI chat feature |

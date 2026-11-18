@@ -13,7 +13,7 @@ An open-source baby tracking app with MCP (Model Context Protocol) integration.
 - **Activity Tracking**: Bath, tummy time, outdoor play, screen time, and more with timer support
 - **Medicine Tracking**: Log medicine doses with custom medicines and dosage tracking
 - **Multi-Caregiver Support**: Share access with family members and caregivers
-- **Real-time Sync**: Changes sync instantly across all devices
+- **Caregiver Sync**: Another caregiver's entries appear within 30 seconds, or as soon as you return to the app
 - **Multiple Report Views**: Day view, week view, and list view for activity history
 - **Visual Timeline**: Daily activity timeline with visual representation of all activity types
 - **Activity Editing**: Edit logged activities with duration sliders and detailed controls
@@ -27,7 +27,6 @@ An open-source baby tracking app with MCP (Model Context Protocol) integration.
 - **API**: tRPC v11
 - **Database**: Supabase (PostgreSQL)
 - **ORM**: Prisma
-- **Real-time**: Supabase Realtime
 - **Auth**: NextAuth.js v5
 - **Styling**: Tailwind CSS 4 + shadcn/ui
 - **MCP**: @modelcontextprotocol/sdk
@@ -133,9 +132,6 @@ The app will be available at `http://localhost:3000`.
 | `ADMIN_EMAIL` | The only address allowed to become the instance admin (see [Accounts and Approval](#accounts-and-approval)) |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous key (for realtime) |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key (server-side access) |
 | `EMAIL_SERVER` | SMTP connection string for magic link emails |
 | `EMAIL_FROM` | Sender email address for magic links |
 | `ANTHROPIC_API_KEY` | Anthropic API key for AI Chat feature |
@@ -176,39 +172,47 @@ UPDATE users SET is_admin = false WHERE is_admin;
    - **Connection string (pooler)** → `DATABASE_URL`
    - **Connection string (direct)** → `DIRECT_URL`
 
-3. Get API keys from Project Settings → API:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public** → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - **service_role** → `SUPABASE_SERVICE_ROLE_KEY`
+3. Create the tables with `pnpm db:push`. This also locks the database down (see below), so use it every time the schema changes.
 
-4. Enable Realtime for tables (optional, for real-time sync):
-   - Go to Database → Replication
-   - Enable replication for: `sleep_records`, `feeding_records`, `diaper_records`, `pumping_records`, `growth_records`, `activity_records`, `temperature_records`, `medicine_records`
+Finnberry needs only the two connection strings. It does not use the project's API keys, and nothing in the browser talks to Supabase.
+
+### Database Lockdown
+
+Supabase publishes every table in the `public` schema through an auto-generated REST API, readable and writable by anyone who has the project's anon key, unless Row Level Security is enabled on the table. Those tables include sign-in sessions and all tracking data.
+
+`pnpm db:push` therefore finishes by running `packages/db/prisma/rls.sql`, which enables Row Level Security on every table with no policies, removes the API roles' table grants, and takes the tables out of the Realtime publication. The app is unaffected because it connects as the table owner. Run `pnpm db:rls` to apply the lockdown on its own, for example after creating tables some other way.
+
+To confirm, this query returns no rows in the Supabase SQL editor:
+
+```sql
+SELECT relname FROM pg_class
+WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND NOT relrowsecurity;
+```
 
 ## Database Commands
 
 | Command | Use Case |
 |---------|----------|
-| `pnpm db:push` | Development - quick schema sync, no migration files |
+| `pnpm db:push` | Sync the schema (no migration files), then apply the database lockdown |
+| `pnpm db:rls` | Apply the database lockdown on its own |
 | `pnpm db:migrate` | Production - creates migration history |
 | `pnpm db:generate` | Regenerate Prisma client after schema changes |
 | `pnpm db:studio` | Open Prisma Studio to browse data |
 
 ### Accessing from Other Devices
 
-#### Development Mode
+Development mode (`pnpm dev`) is for the machine you are developing on. It trusts whatever host a request claims to come from, which is convenient on `localhost` and unsafe anywhere else, so do not use it to serve other devices or to hold real data.
 
-In development (`NODE_ENV=development`), the app automatically detects the host from request headers for convenience:
+To use Finnberry from a phone, another computer, or the internet, run a production build:
 
-- **Localhost**: Works at `http://localhost:3000`
-- **LAN access**: Works at `http://<your-local-ip>:3000` (e.g., from your phone)
-- **Test server**: Works at `http://<server-ip>:3000`
-
-Magic links will automatically use the correct URL you accessed the app from.
+```bash
+pnpm build
+pnpm --filter @finnberry/web start
+```
 
 #### Production/Self-Hosted Deployment
 
-**IMPORTANT**: For production or when exposing to the internet, you **must** set `NEXTAUTH_URL` explicitly in your `.env` file for security:
+A production build needs `NEXTAUTH_URL` set in your `.env` file to the address people will open. Sign-in does not work without it, and magic links are built from it:
 
 ```bash
 # For a home server on your LAN
@@ -221,7 +225,7 @@ NEXTAUTH_URL="http://your-server-ip:3000"
 NEXTAUTH_URL="https://finnberry.yourdomain.com"
 ```
 
-This prevents Host header injection attacks.
+Because links are built from this value and not from the request, a forged Host header cannot redirect a magic link.
 
 #### Network Access
 
