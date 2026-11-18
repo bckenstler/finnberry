@@ -195,10 +195,18 @@ BASE_URL=http://localhost:3001 pnpm test:e2e
 
 ### tRPC Procedures
 
-Three procedure types in `packages/api/src/trpc.ts`:
+Procedure types in `packages/api/src/trpc.ts`:
 - `publicProcedure` - No auth required
 - `protectedProcedure` - Requires authenticated session
-- `householdProcedure` - Requires auth + validates household/child access
+- Household-scoped procedures - Require auth and membership of the household that owns the target. Each one validates a single input key and authorizes on it, so pick the one matching the key the handler acts on:
+  - `householdProcedure` - input has `householdId`
+  - `childProcedure` - input has `childId`
+  - `medicineProcedure` - input has `medicineId`
+  - `byIdProcedure("sleepRecord")` etc. - input has `id`; the argument says what kind of resource `id` names
+
+A household-scoped handler always has `ctx.householdId` and `ctx.memberRole`. A resource that does not exist is `NOT_FOUND`; a caller outside its household is `FORBIDDEN`. Add the rest of the input with a second `.input(schema)`. Never authorize on raw input, and never add a handler that looks a record up by `id` under `protectedProcedure`.
+
+Household roles: `OWNER` comes only from creating a household. Invites and role changes accept `ADMIN`, `CAREGIVER` or `VIEWER` (`assignableRoleSchema`), only an owner can invite or remove an admin, and an owner cannot be removed or demoted.
 
 ### Timer System
 
@@ -219,7 +227,7 @@ The dashboard includes a Chat tab (`apps/web/src/components/chat/`) for natural 
 - Streaming text and tool execution visualization
 - Image attachments: the browser resizes each photo to a JPEG (`apps/web/src/lib/image.ts`) and sends it base64 in the request; the route passes it to the model as an image block. Images are not stored. History resends images only for the latest turn that had any, and only until a tool call succeeds after it
 - The request body is validated by `chatRequestSchema` (`packages/schemas/src/chat.ts`), which owns the image count and size limits
-- Tool calls are scoped in the route: only offered tools run, `list-children` is not offered, and `childId` is always overwritten with the authorized one. Text in images is untrusted, so do not relax this
+- Tool calls are scoped in the route: only tools that take a `childId` are offered (so `list-children` is not), only offered tools run, and `childId` is always overwritten with the authorized one. A `VIEWER` is offered only the read tools (`get-`, `query-`, `list-` prefixes). Text in images is untrusted, so do not relax this
 - Key files:
   - `chat-interface.tsx` - Main chat container with messages and input
   - `chat-message.tsx` - User/assistant message bubbles with tool call display
@@ -247,6 +255,8 @@ The MCP server (`apps/mcp-server/`) provides:
 - **Tools**: Actions like `start-sleep`, `log-feeding`, `log-diaper`
 - **Resources**: Read-only data like `finnberry://children/{id}/today`
 - **Prompts**: AI analysis prompts like `analyze-sleep-patterns`
+
+Tools that act on an existing record (`end-sleep`, `end-pumping`, `end-activity`, `log-medicine`, `get-medicine-records`) require the `childId` alongside the record id and only match a record of that child. A new tool must take a `childId` and filter on it, or the chat will not offer it.
 
 ## Database Schema
 

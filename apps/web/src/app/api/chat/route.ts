@@ -112,20 +112,30 @@ function toAnthropicMessages(chatRequest: ChatRequest): Anthropic.MessageParam[]
   }));
 }
 
-// list-children returns every child in the database regardless of household,
-// so it is never offered in chat. The chat is already scoped to one child.
-const TOOLS_EXCLUDED_FROM_CHAT = new Set(["list-children"]);
-
 interface ChatTools {
   definitions: Anthropic.Tool[];
   offeredNames: Set<string>;
-  childScopedNames: Set<string>;
+}
+
+type McpTool = ReturnType<typeof registerTools>[number];
+
+// A tool handler confines its reads and writes to the childId it is given.
+// A tool that takes no childId (list-children returns every child in the
+// database) has nothing confining it, so it is never offered in chat.
+function isChildScoped(tool: McpTool): boolean {
+  return "childId" in (tool.inputSchema.properties ?? {});
+}
+
+const READ_ONLY_TOOL_PREFIXES = ["get-", "query-", "list-"];
+
+function isReadOnly(tool: McpTool): boolean {
+  return READ_ONLY_TOOL_PREFIXES.some((prefix) => tool.name.startsWith(prefix));
 }
 
 // Convert MCP tool definitions to Anthropic tool format
-function getChatTools(): ChatTools {
+function getChatTools({ canWrite }: { canWrite: boolean }): ChatTools {
   const mcpTools = registerTools().filter(
-    (tool) => !TOOLS_EXCLUDED_FROM_CHAT.has(tool.name)
+    (tool) => isChildScoped(tool) && (canWrite || isReadOnly(tool))
   );
 
   return {
@@ -135,17 +145,12 @@ function getChatTools(): ChatTools {
       input_schema: tool.inputSchema as Anthropic.Tool["input_schema"],
     })),
     offeredNames: new Set(mcpTools.map((tool) => tool.name)),
-    childScopedNames: new Set(
-      mcpTools
-        .filter((tool) => "childId" in (tool.inputSchema.properties ?? {}))
-        .map((tool) => tool.name)
-    ),
   };
 }
 
 // The model chooses tool names and arguments, and its context can contain
-// text the user did not write. Only offered tools run, and a tool that takes
-// a childId always gets the one the session was authorized for.
+// text the user did not write. Only offered tools run, and every offered tool
+// gets the childId the session was authorized for, whatever the model sent.
 function scopeToolInput(
   toolUse: Anthropic.ToolUseBlock,
   childId: string,
@@ -155,11 +160,7 @@ function scopeToolInput(
     throw new Error(`Tool is not available in chat: ${toolUse.name}`);
   }
 
-  const toolInput = { ...(toolUse.input as Record<string, unknown>) };
-  if (chatTools.childScopedNames.has(toolUse.name)) {
-    toolInput.childId = childId;
-  }
-  return toolInput;
+  return { ...(toolUse.input as Record<string, unknown>), childId };
 }
 
 // Generate system prompt for the chat
@@ -268,7 +269,8 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!child || child.household.members.length === 0) {
+    const membership = child?.household.members[0];
+    if (!child || !membership) {
       return new Response(
         JSON.stringify({ error: "Access denied to this child" }),
         {
@@ -299,7 +301,8 @@ export async function POST(request: Request) {
       child.birthDate,
       chatRequest.timezone
     );
-    const chatTools = getChatTools();
+    // Viewers may ask about the data but not change it, as in the rest of the app.
+    const chatTools = getChatTools({ canWrite: membership.role !== "VIEWER" });
 
     const messages = toAnthropicMessages(chatRequest);
 

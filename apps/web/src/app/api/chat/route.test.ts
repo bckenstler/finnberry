@@ -47,8 +47,8 @@ vi.mock("@finnberry/mcp-server/tools", () => ({
       description: "End a sleep session",
       inputSchema: {
         type: "object",
-        properties: { sleepId: { type: "string" } },
-        required: ["sleepId"],
+        properties: { childId: { type: "string" }, sleepId: { type: "string" } },
+        required: ["childId", "sleepId"],
       },
     },
     {
@@ -113,7 +113,7 @@ describe("POST /api/chat", () => {
       id: SESSION_CHILD_ID,
       name: "Test Baby",
       birthDate: new Date("2024-01-01"),
-      household: { members: [{ userId: "user-1" }] },
+      household: { members: [{ userId: "user-1", role: "CAREGIVER" }] },
     });
     mocks.handleToolCall.mockResolvedValue({
       content: [{ type: "text", text: "ok" }],
@@ -151,7 +151,7 @@ describe("POST /api/chat", () => {
     expect(mocks.streamMessage).not.toHaveBeenCalled();
   });
 
-  it("does not offer list-children to the model", async () => {
+  it("does not offer a tool that takes no childId", async () => {
     modelCallsTools([]);
 
     await readEvents(
@@ -201,8 +201,10 @@ describe("POST /api/chat", () => {
     );
   });
 
-  it("does not add a childId to a tool that takes none", async () => {
-    modelCallsTools([{ name: "end-sleep", input: { sleepId: "sleep-1" } }]);
+  it("confines a tool addressed by record id to the authorized child", async () => {
+    modelCallsTools([
+      { name: "end-sleep", input: { sleepId: "sleep-1", childId: FOREIGN_CHILD_ID } },
+    ]);
 
     await readEvents(
       await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "end it" }))
@@ -210,7 +212,7 @@ describe("POST /api/chat", () => {
 
     expect(mocks.handleToolCall).toHaveBeenCalledWith(
       "end-sleep",
-      { sleepId: "sleep-1" },
+      { sleepId: "sleep-1", childId: SESSION_CHILD_ID },
       expect.anything()
     );
   });
@@ -231,6 +233,43 @@ describe("POST /api/chat", () => {
     expect(followUp.content).toEqual([
       expect.objectContaining({ type: "tool_result", is_error: true }),
     ]);
+  });
+
+  describe("for a VIEWER", () => {
+    beforeEach(() => {
+      mocks.findChild.mockResolvedValue({
+        id: SESSION_CHILD_ID,
+        name: "Test Baby",
+        birthDate: new Date("2024-01-01"),
+        household: { members: [{ userId: "user-1", role: "VIEWER" }] },
+      });
+    });
+
+    it("offers only tools that read", async () => {
+      modelCallsTools([]);
+
+      await readEvents(
+        await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "hi" }))
+      );
+
+      const offered = mocks.streamMessage.mock.calls[0]![0].tools.map(
+        (tool: { name: string }) => tool.name
+      );
+      expect(offered).toEqual(["query-sleep-records"]);
+    });
+
+    it("refuses a write the model attempts anyway", async () => {
+      modelCallsTools([{ name: "log-diaper", input: { diaperType: "WET" } }]);
+
+      const events = await readEvents(
+        await POST(chatRequest({ childId: SESSION_CHILD_ID, message: "log it" }))
+      );
+
+      expect(mocks.handleToolCall).not.toHaveBeenCalled();
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: "tool_error", name: "log-diaper" })
+      );
+    });
   });
 
   describe("request validation", () => {

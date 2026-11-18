@@ -3,6 +3,7 @@ import { prismaMock } from "../test/setup";
 import {
   createTestContext,
   createTestMembership,
+  mockRecordOwnership,
   createTestChild,
   TEST_IDS,
 } from "../test/helpers";
@@ -47,6 +48,7 @@ describe("medicineRouter", () => {
 
   beforeEach(() => {
     prismaMock.child.findUnique.mockResolvedValue(createTestChild() as never);
+    mockRecordOwnership();
     prismaMock.householdMember.findUnique.mockResolvedValue(
       createTestMembership({ role: "CAREGIVER" }) as never
     );
@@ -200,9 +202,6 @@ describe("medicineRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.medicine.findUnique.mockResolvedValue(
-        createTestMedicine() as never
-      );
       prismaMock.medicineRecord.create.mockResolvedValue(
         createTestMedicineRecord() as never
       );
@@ -216,9 +215,6 @@ describe("medicineRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.medicine.findUnique.mockResolvedValue(
-        createTestMedicine() as never
-      );
       prismaMock.medicineRecord.create.mockResolvedValue(
         createTestMedicineRecord({ skipped: true }) as never
       );
@@ -245,10 +241,6 @@ describe("medicineRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.medicineRecord.findUnique.mockResolvedValue({
-        ...createTestMedicineRecord(),
-        medicine: createTestMedicine(),
-      } as never);
       prismaMock.medicineRecord.update.mockResolvedValue(
         createTestMedicineRecord({ dosageGiven: "Half dose" }) as never
       );
@@ -267,10 +259,6 @@ describe("medicineRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.medicineRecord.findUnique.mockResolvedValue({
-        ...createTestMedicineRecord(),
-        medicine: createTestMedicine(),
-      } as never);
       prismaMock.medicineRecord.delete.mockResolvedValue(
         createTestMedicineRecord() as never
       );
@@ -286,9 +274,6 @@ describe("medicineRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.medicine.findUnique.mockResolvedValue(
-        createTestMedicine() as never
-      );
       prismaMock.medicineRecord.findMany.mockResolvedValue([
         createTestMedicineRecord(),
       ] as never);

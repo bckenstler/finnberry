@@ -272,6 +272,8 @@ The MCP server allows AI agents (like Claude) to interact with your baby trackin
 | `list-children` | List all children |
 | `get-daily-summary` | Get all activity for a day |
 
+Every tool except `list-children` takes a `childId`. Tools that act on an existing record, such as `end-sleep`, take the record id as well and only match a record that belongs to that child.
+
 ### Available Resources
 
 | URI | Description |
