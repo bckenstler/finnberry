@@ -572,3 +572,123 @@ describe("useChat", () => {
     });
   });
 });
+
+describe("useChat with images", () => {
+  const photo = { mediaType: "image/jpeg" as const, data: "/9j/photo" };
+  const otherPhoto = { mediaType: "image/jpeg" as const, data: "/9j/other" };
+
+  function respondWith(events: object[] = []) {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      body: createMockStream([...events.map(sseData), sseData("[DONE]")]),
+    });
+  }
+
+  function sentBody(call: number) {
+    return JSON.parse(mockFetch.mock.calls[call][1].body);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("sends attached images and the browser timezone", async () => {
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("Log these", [photo]);
+    });
+
+    expect(sentBody(0)).toMatchObject({
+      message: "Log these",
+      images: [photo],
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    expect(result.current.messages[0]).toMatchObject({ role: "user", images: [photo] });
+  });
+
+  it("sends an image with no text", async () => {
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("", [photo]);
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(sentBody(0)).toMatchObject({ message: "", images: [photo] });
+  });
+
+  it("leaves images out of the request when none are attached", async () => {
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("Hello");
+    });
+
+    expect(sentBody(0)).not.toHaveProperty("images");
+  });
+
+  it("resends the images with a follow-up while nothing has been logged", async () => {
+    respondWith([{ type: "text_delta", text: "I see two feeds. Log them?" }]);
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("What is on this sheet?", [photo]);
+    });
+    await act(async () => {
+      await result.current.sendMessage("The second one was 4oz");
+    });
+
+    expect(sentBody(1).conversationHistory).toEqual([
+      { role: "user", content: "What is on this sheet?", images: [photo] },
+      { role: "assistant", content: "I see two feeds. Log them?" },
+    ]);
+    expect(sentBody(1)).not.toHaveProperty("images");
+  });
+
+  it("stops resending the images once a tool call has succeeded", async () => {
+    respondWith([
+      { type: "tool_use_start", id: "tool-1", name: "log-bottle" },
+      { type: "tool_executing", id: "tool-1", name: "log-bottle", input: {} },
+      { type: "tool_result", id: "tool-1", name: "log-bottle", result: "ok" },
+      { type: "text_delta", text: "Logged." },
+    ]);
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("Log this", [photo]);
+    });
+    await act(async () => {
+      await result.current.sendMessage("Thanks");
+    });
+
+    expect(sentBody(1).conversationHistory).toEqual([
+      { role: "user", content: "Log this" },
+      { role: "assistant", content: "Logged." },
+    ]);
+  });
+
+  it("sends only the new images when more are attached later", async () => {
+    respondWith([{ type: "text_delta", text: "Got it." }]);
+    respondWith();
+    const { result } = renderHook(() => useChat({ childId: "child-1" }));
+
+    await act(async () => {
+      await result.current.sendMessage("First sheet", [photo]);
+    });
+    await act(async () => {
+      await result.current.sendMessage("Second sheet", [otherPhoto]);
+    });
+
+    expect(sentBody(1).images).toEqual([otherPhoto]);
+    expect(sentBody(1).conversationHistory).toEqual([
+      { role: "user", content: "First sheet" },
+      { role: "assistant", content: "Got it." },
+    ]);
+  });
+});

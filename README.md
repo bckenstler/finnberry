@@ -227,6 +227,7 @@ The dashboard includes a Chat tab that allows natural language interaction with 
 
 - **Natural Language Logging**: Say "Log a wet diaper" or "Start a nap for the baby"
 - **Query Data**: Ask "What did the baby do today?" or "How much sleep did the baby get this week?"
+- **Photos**: Attach up to 4 photos (a handwritten log, a daycare sheet, a screenshot from another app, a thermometer) and the assistant reads the entries and offers to log them. It lists what it read and asks before logging more than one entry. Photos are resized in the browser, sent to Anthropic with the message, and not stored by Finnberry
 - **Streaming Responses**: Real-time streaming of AI responses with tool execution visualization
 - **Model Selection**: Choose between Haiku (fast), Sonnet (balanced), or Opus (most capable)
 
@@ -239,11 +240,14 @@ The dashboard includes a Chat tab that allows natural language interaction with 
    ```
 3. The Chat tab will appear in the dashboard alongside Home and Reports
 
+A message with photos can be a few megabytes. If the app sits behind a reverse proxy, allow request bodies of at least 6 MB (nginx: `client_max_body_size 6m;`, its default is 1 MB).
+
 ### Example Interactions
 
 - "Log a wet diaper"
 - "Start tracking sleep"
 - "Log a 4oz bottle of formula"
+- Attach a photo of the daycare sheet and say "Log everything on this"
 - "What time was the last feeding?"
 - "Give me a summary of today's activities"
 
