@@ -19,6 +19,8 @@ const handler = async (req: Request) => {
                 email: session.user?.email,
                 name: session.user?.name,
                 image: session.user?.image,
+                status: session.user?.status ?? "PENDING",
+                isAdmin: session.user?.isAdmin === true,
               },
             }
           : null,

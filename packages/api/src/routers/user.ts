@@ -50,6 +50,13 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      if (ctx.session.user.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "The admin account cannot be deleted",
+        });
+      }
+
       // Check for households where user is the sole owner
       const ownedHouseholds = await ctx.prisma.householdMember.findMany({
         where: {
@@ -65,23 +72,35 @@ export const userRouter = createTRPCRouter({
         },
       });
 
-      // For each household where user is owner, handle ownership transfer or deletion
-      for (const membership of ownedHouseholds) {
+      // Decide every household's fate before changing anything, so that a
+      // household that cannot be handed over leaves the account untouched.
+      const handovers = ownedHouseholds.map((membership) => {
         const otherMembers = membership.household.members.filter(
           (m) => m.userId !== ctx.session.user.id
         );
+        // Ownership goes to someone who can already edit the household's
+        // data. A viewer is read-only and is never promoted by a departure.
+        const newOwner =
+          otherMembers.find((m) => m.role === "ADMIN") ??
+          otherMembers.find((m) => m.role === "CAREGIVER");
+        return { membership, hasOtherMembers: otherMembers.length > 0, newOwner };
+      });
 
-        if (otherMembers.length === 0) {
+      if (handovers.some((h) => h.hasOtherMembers && !h.newOwner)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "A household you own has only viewers left. Make one of them a caregiver or admin, or remove them, before deleting your account.",
+        });
+      }
+
+      for (const { membership, newOwner } of handovers) {
+        if (!newOwner) {
           // No other members, delete the household (cascades to children and records)
           await ctx.prisma.household.delete({
             where: { id: membership.householdId },
           });
         } else {
-          // Transfer ownership to first admin, or first member if no admins
-          // We know otherMembers.length > 0 from the if check above
-          const newOwner =
-            otherMembers.find((m) => m.role === "ADMIN") ?? otherMembers[0]!;
-
           await ctx.prisma.householdMember.update({
             where: {
               householdId_userId: {

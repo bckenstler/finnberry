@@ -13,9 +13,10 @@
   },
   "scripts": {
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:studio": "prisma studio",
+    "db:push": "node scripts/prisma-env.mjs db push && pnpm run db:rls",
+    "db:rls": "node scripts/prisma-env.mjs db execute --file prisma/rls.sql --schema prisma/schema.prisma",
+    "db:migrate": "node scripts/prisma-env.mjs migrate dev",
+    "db:studio": "node scripts/prisma-env.mjs studio",
     "type-check": "tsc --noEmit"
   },
   "dependencies": {

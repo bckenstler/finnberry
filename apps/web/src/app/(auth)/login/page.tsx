@@ -108,22 +108,31 @@ export default function LoginPage() {
             </>
           )}
 
-          <form onSubmit={handleEmailSignIn} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Sending magic link..." : "Send magic link"}
-            </Button>
-          </form>
+          {providers && Object.keys(providers).length === 0 && (
+            <p className="text-sm text-muted-foreground text-center">
+              No sign-in method is configured. Set up Google sign-in or an
+              email server, then restart Finnberry.
+            </p>
+          )}
+
+          {providers?.nodemailer && (
+            <form onSubmit={handleEmailSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Sending magic link..." : "Send magic link"}
+              </Button>
+            </form>
+          )}
         </CardContent>
       </Card>
     </div>

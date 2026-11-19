@@ -9,5 +9,7 @@ export * from "./activity";
 export * from "./temperature";
 export * from "./medicine";
 export * from "./user";
+export * from "./admin";
 export * from "./timeline";
+export * from "./chat";
 export * from "./common";

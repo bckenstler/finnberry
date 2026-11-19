@@ -8,7 +8,7 @@ import {
   updateMemberRoleSchema,
   removeMemberSchema,
 } from "@finnberry/schemas";
-import { createTRPCRouter, protectedProcedure, householdProcedure } from "../trpc";
+import { createTRPCRouter, protectedProcedure, byIdProcedure, householdProcedure } from "../trpc";
 
 export const householdRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -38,7 +38,7 @@ export const householdRouter = createTRPCRouter({
     }));
   }),
 
-  get: householdProcedure
+  get: byIdProcedure("household")
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const household = await ctx.prisma.household.findUnique({
@@ -89,7 +89,7 @@ export const householdRouter = createTRPCRouter({
       return household;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("household")
     .input(updateHouseholdSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole !== "OWNER" && ctx.memberRole !== "ADMIN") {
@@ -107,7 +107,7 @@ export const householdRouter = createTRPCRouter({
       return household;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("household")
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole !== "OWNER") {
@@ -131,6 +131,13 @@ export const householdRouter = createTRPCRouter({
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Only owners and admins can invite members",
+        });
+      }
+
+      if (input.role === "ADMIN" && ctx.memberRole !== "OWNER") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only owners can invite admins",
         });
       }
 
@@ -189,7 +196,7 @@ export const householdRouter = createTRPCRouter({
         });
       }
 
-      if (invite.email !== ctx.session.user.email) {
+      if (invite.email.toLowerCase() !== ctx.session.user.email?.toLowerCase()) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "This invite is for a different email address",
@@ -229,13 +236,29 @@ export const householdRouter = createTRPCRouter({
         });
       }
 
-      const member = await ctx.prisma.householdMember.update({
-        where: {
-          householdId_userId: {
-            householdId: input.householdId,
-            userId: input.userId,
-          },
+      const memberKey = {
+        householdId_userId: {
+          householdId: input.householdId,
+          userId: input.userId,
         },
+      };
+      const target = await ctx.prisma.householdMember.findUnique({
+        where: memberKey,
+      });
+
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND" });
+      }
+
+      if (target.role === "OWNER") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "An owner's role cannot be changed",
+        });
+      }
+
+      const member = await ctx.prisma.householdMember.update({
+        where: memberKey,
         data: { role: input.role },
       });
 
@@ -267,10 +290,22 @@ export const householdRouter = createTRPCRouter({
         throw new TRPCError({ code: "NOT_FOUND" });
       }
 
-      if (memberToRemove.role === "OWNER" && !isRemovingSelf) {
+      // Also blocks an owner leaving, which would orphan the household.
+      if (memberToRemove.role === "OWNER") {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Cannot remove the owner",
+        });
+      }
+
+      if (
+        memberToRemove.role === "ADMIN" &&
+        !isRemovingSelf &&
+        ctx.memberRole !== "OWNER"
+      ) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only owners can remove admins",
         });
       }
 

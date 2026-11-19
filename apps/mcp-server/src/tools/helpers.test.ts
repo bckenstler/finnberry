@@ -144,7 +144,7 @@ describe("mapRecentRecords", () => {
       { id: "2", startTime: new Date("2024-01-15T12:00:00Z"), endTime: new Date("2024-01-15T13:00:00Z"), sleepType: "NIGHT" },
     ];
 
-    const result = mapRecentRecords(records, 10, (r) => ({
+    const result = mapRecentRecords<TimerRecord, { sleepType: string }>(records, 10, (r) => ({
       sleepType: r.sleepType as string,
     }));
 

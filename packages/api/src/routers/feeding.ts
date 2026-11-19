@@ -13,10 +13,10 @@ import {
   feedingSummarySchema,
 } from "@finnberry/schemas";
 import { getDateRange, calculateDurationMinutes } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const feedingRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getFeedingRecordsSchema)
     .query(async ({ ctx, input }) => {
       const dateFilter = input.dateRange
@@ -37,7 +37,7 @@ export const feedingRouter = createTRPCRouter({
       return records;
     }),
 
-  getActive: householdProcedure
+  getActive: childProcedure
     .input(getActiveFeedingSchema)
     .query(async ({ ctx, input }) => {
       const activeFeeding = await ctx.prisma.feedingRecord.findFirst({
@@ -52,7 +52,7 @@ export const feedingRouter = createTRPCRouter({
       return activeFeeding;
     }),
 
-  startBreastfeeding: householdProcedure
+  startBreastfeeding: childProcedure
     .input(startBreastfeedingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -89,7 +89,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  endBreastfeeding: householdProcedure
+  endBreastfeeding: byIdProcedure("feedingRecord")
     .input(endBreastfeedingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -113,7 +113,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  switchBreastfeedingSide: householdProcedure
+  switchBreastfeedingSide: byIdProcedure("feedingRecord")
     .input(switchBreastfeedingSideSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -135,7 +135,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  logBreastfeeding: householdProcedure
+  logBreastfeeding: childProcedure
     .input(logBreastfeedingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -161,7 +161,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  logBottle: householdProcedure
+  logBottle: childProcedure
     .input(logBottleSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -186,7 +186,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  logSolids: householdProcedure
+  logSolids: childProcedure
     .input(logSolidsSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -210,7 +210,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("feedingRecord")
     .input(updateFeedingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -238,7 +238,7 @@ export const feedingRouter = createTRPCRouter({
       return feeding;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("feedingRecord")
     .input(deleteFeedingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -255,7 +255,7 @@ export const feedingRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  summary: householdProcedure
+  summary: childProcedure
     .input(feedingSummarySchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getDateRange(input.period);

@@ -1,5 +1,6 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, formatTime } from "@finnberry/utils";
+import { requireChildId } from "./helpers.js";
 import {
   parseQueryDates,
   sanitizeLimit,
@@ -77,6 +78,7 @@ export async function handleMedicineTools(
     }
 
     case "log-medicine": {
+      const childId = requireChildId(args);
       const { medicineId, time, dosageGiven, skipped = false, notes } = args as {
         medicineId: string;
         time?: string;
@@ -86,7 +88,7 @@ export async function handleMedicineTools(
       };
 
       const medicine = await prisma.medicine.findUnique({
-        where: { id: medicineId },
+        where: { id: medicineId, childId },
       });
 
       if (!medicine) {
@@ -117,13 +119,14 @@ export async function handleMedicineTools(
     }
 
     case "get-medicine-records": {
+      const childId = requireChildId(args);
       const { medicineId, period = "week" } = args as {
         medicineId: string;
         period?: "today" | "week" | "month";
       };
 
       const medicine = await prisma.medicine.findUnique({
-        where: { id: medicineId },
+        where: { id: medicineId, childId },
       });
 
       if (!medicine) {

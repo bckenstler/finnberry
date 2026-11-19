@@ -1,6 +1,9 @@
 "use client";
 
+import Image from "next/image";
 import { User, Bot } from "lucide-react";
+import type { ChatImage } from "@finnberry/schemas";
+import { chatImageUrl } from "@/lib/image";
 import Markdown, { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
@@ -45,6 +48,7 @@ export type ContentBlock =
 export interface ChatMessageProps {
   role: "user" | "assistant";
   content: string; // For user messages (simple text)
+  images?: ChatImage[]; // Attached to user messages
   contentBlocks?: ContentBlock[]; // For assistant messages (interleaved)
   isStreaming?: boolean;
   className?: string;
@@ -53,6 +57,7 @@ export interface ChatMessageProps {
 export function ChatMessage({
   role,
   content,
+  images,
   contentBlocks,
   isStreaming,
   className,
@@ -87,10 +92,29 @@ export function ChatMessage({
         )}
       >
         {isUser ? (
-          // User message - simple text bubble
-          <div className="rounded-2xl px-4 py-2 bg-primary text-primary-foreground">
-            <div className="whitespace-pre-wrap text-sm">{content}</div>
-          </div>
+          // User message - attached images, then a simple text bubble
+          <>
+            {images && images.length > 0 && (
+              <div className="flex flex-wrap justify-end gap-2">
+                {images.map((image, index) => (
+                  <Image
+                    key={index}
+                    src={chatImageUrl(image)}
+                    alt={`Attached image ${index + 1}`}
+                    width={160}
+                    height={160}
+                    unoptimized
+                    className="h-40 w-40 rounded-xl border border-border object-cover"
+                  />
+                ))}
+              </div>
+            )}
+            {content && (
+              <div className="rounded-2xl px-4 py-2 bg-primary text-primary-foreground">
+                <div className="whitespace-pre-wrap text-sm">{content}</div>
+              </div>
+            )}
+          </>
         ) : (
           // Assistant message - interleaved content blocks
           <>
