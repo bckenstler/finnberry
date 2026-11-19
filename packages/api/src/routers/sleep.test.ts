@@ -4,6 +4,7 @@ import { prismaMock } from "../test/setup";
 import {
   createTestContext,
   createTestMembership,
+  mockRecordOwnership,
   createTestChild,
   createTestSleepRecord,
   TEST_IDS,
@@ -20,6 +21,7 @@ describe("sleepRouter", () => {
   beforeEach(() => {
     // Setup default household membership
     prismaMock.child.findUnique.mockResolvedValue(createTestChild() as never);
+    mockRecordOwnership();
     prismaMock.householdMember.findUnique.mockResolvedValue(
       createTestMembership({ role: "CAREGIVER" }) as never
     );

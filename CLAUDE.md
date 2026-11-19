@@ -51,14 +51,14 @@ finnberry/
 │
 ├── packages/
 │   ├── db/                      # Prisma schema + client
-│   │   ├── prisma/schema.prisma # Database schema (17 models)
+│   │   ├── prisma/schema.prisma # Database schema (18 models)
 │   │   └── src/index.ts         # Prisma client singleton
 │   │
 │   ├── api/                     # tRPC routers
 │   │   └── src/
 │   │       ├── trpc.ts          # tRPC context, procedures, middleware
 │   │       ├── root.ts          # Root router combining all routers
-│   │       └── routers/         # Individual routers (12 total)
+│   │       └── routers/         # Individual routers (13 total)
 │   │
 │   ├── schemas/                 # Shared Zod validation schemas
 │   │   └── src/                 # One file per domain (sleep, feeding, etc.)
@@ -182,7 +182,7 @@ import { TEST_IDS } from "../test/helpers";
 
 E2E tests use a test seed API (`/api/test/seed`) to create real database records:
 - Only available in development/test environments
-- Creates test users, sessions, households, and children
+- Creates test users, sessions, households, and children. Test users are created `APPROVED` unless the call passes a `status`
 - Cleanup removes all records prefixed with `e2e-test`
 
 Tests run serially (`workers=1`) to avoid race conditions. Run with:
@@ -195,10 +195,28 @@ BASE_URL=http://localhost:3001 pnpm test:e2e
 
 ### tRPC Procedures
 
-Three procedure types in `packages/api/src/trpc.ts`:
+Procedure types in `packages/api/src/trpc.ts`:
 - `publicProcedure` - No auth required
 - `protectedProcedure` - Requires authenticated session
-- `householdProcedure` - Requires auth + validates household/child access
+- Household-scoped procedures - Require auth and membership of the household that owns the target. Each one validates a single input key and authorizes on it, so pick the one matching the key the handler acts on:
+  - `householdProcedure` - input has `householdId`
+  - `childProcedure` - input has `childId`
+  - `medicineProcedure` - input has `medicineId`
+  - `byIdProcedure("sleepRecord")` etc. - input has `id`; the argument says what kind of resource `id` names
+
+A household-scoped handler always has `ctx.householdId` and `ctx.memberRole`. A resource that does not exist is `NOT_FOUND`; a caller outside its household is `FORBIDDEN`. Add the rest of the input with a second `.input(schema)`. Never authorize on raw input, and never add a handler that looks a record up by `id` under `protectedProcedure`.
+
+Household roles: `OWNER` comes only from creating a household. Invites and role changes accept `ADMIN`, `CAREGIVER` or `VIEWER` (`assignableRoleSchema`), only an owner can invite or remove an admin, and an owner cannot be removed or demoted.
+
+### Accounts and Approval
+
+Signing in is open; using the app is not. `User.status` starts `PENDING` and the single instance admin (`User.isAdmin`) sets it to `APPROVED` or `REJECTED`.
+
+- The first sign-in claims admin in `apps/web/src/lib/instance-admin.ts`, called from `events.signIn` in `apps/web/src/lib/auth.ts`. The `InstanceAdminClaim` table holds at most one row with a fixed primary key, which is what makes the claim race-safe. `ADMIN_EMAIL` restricts who may claim
+- Sessions are database-backed, so the session callback reads `status` and `isAdmin` from the user row on every request
+- Approval is enforced in three places, and a new entry point must add its own check: `protectedProcedure` (every tRPC procedure), `(dashboard)/layout.tsx` (redirects to `/pending`), and `/api/chat`
+- `adminProcedure` and `packages/api/src/routers/admin.ts` back the Accounts page (`dashboard/admin`). Rejecting an account deletes its sessions
+- The user-facing description, including how to hand the admin role over, is in the README under "Accounts and Approval"
 
 ### Timer System
 
@@ -217,6 +235,9 @@ The dashboard includes a Chat tab (`apps/web/src/components/chat/`) for natural 
 - Tool calling for logging activities and querying data
 - Model selection (Haiku, Sonnet, Opus)
 - Streaming text and tool execution visualization
+- Image attachments: the browser resizes each photo to a JPEG (`apps/web/src/lib/image.ts`) and sends it base64 in the request; the route passes it to the model as an image block. Images are not stored. History resends images only for the latest turn that had any, and only until a tool call succeeds after it
+- The request body is validated by `chatRequestSchema` (`packages/schemas/src/chat.ts`), which owns the image count and size limits
+- Tool calls are scoped in the route: only tools that take a `childId` are offered (so `list-children` is not), only offered tools run, and `childId` is always overwritten with the authorized one. A `VIEWER` is offered only the read tools (`get-`, `query-`, `list-` prefixes). Text in images is untrusted, so do not relax this
 - Key files:
   - `chat-interface.tsx` - Main chat container with messages and input
   - `chat-message.tsx` - User/assistant message bubbles with tool call display
@@ -245,10 +266,13 @@ The MCP server (`apps/mcp-server/`) provides:
 - **Resources**: Read-only data like `finnberry://children/{id}/today`
 - **Prompts**: AI analysis prompts like `analyze-sleep-patterns`
 
+Tools that act on an existing record (`end-sleep`, `end-pumping`, `end-activity`, `log-medicine`, `get-medicine-records`) require the `childId` alongside the record id and only match a record of that child. A new tool must take a `childId` and filter on it, or the chat will not offer it.
+
 ## Database Schema
 
 Key models in `packages/db/prisma/schema.prisma`:
-- `User`, `Account`, `Session` - NextAuth.js models
+- `User`, `Account`, `Session` - NextAuth.js models (`User` also carries `status` and `isAdmin`)
+- `InstanceAdminClaim` - Single-row latch recording which user is the instance admin
 - `Household`, `HouseholdMember`, `HouseholdInvite` - Multi-caregiver
 - `Child` - Child profiles
 - `SleepRecord`, `FeedingRecord`, `DiaperRecord` - Core tracking
@@ -333,6 +357,7 @@ AUTH_SECRET=             # Generate with: openssl rand -base64 32
 
 # Optional
 NEXTAUTH_URL=            # http://localhost:3000 for dev (auto-detected if not set)
+ADMIN_EMAIL=             # Only this address can become the instance admin
 GOOGLE_CLIENT_ID=        # For Google OAuth
 GOOGLE_CLIENT_SECRET=
 NEXT_PUBLIC_SUPABASE_URL=
@@ -386,6 +411,7 @@ ANTHROPIC_API_KEY=       # For AI Chat feature (sk-ant-...)
 
 | Variable | Description |
 |----------|-------------|
+| `ADMIN_EMAIL` | The only address allowed to become the instance admin |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |

@@ -130,6 +130,7 @@ The app will be available at `http://localhost:3000`.
 | Variable | Description |
 |----------|-------------|
 | `NEXTAUTH_URL` | App URL - required for production, auto-detected in dev |
+| `ADMIN_EMAIL` | The only address allowed to become the instance admin (see [Accounts and Approval](#accounts-and-approval)) |
 | `GOOGLE_CLIENT_ID` | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (for realtime) |
@@ -149,6 +150,22 @@ EMAIL_SERVER="smtps://resend:re_YOUR_API_KEY@smtp.resend.com:465"
 
 # Gmail (requires app password)
 EMAIL_SERVER="smtps://you@gmail.com:app-password@smtp.gmail.com:465"
+```
+
+## Accounts and Approval
+
+Anyone who can use one of the configured sign-in methods can sign in, but a new account can do nothing until the instance admin approves it. This keeps a public deployment private to the people you choose.
+
+- **The admin** is the first account to sign in. To make sure that is you and not whoever finds the login page first, set `ADMIN_EMAIL` to your address before deploying: then only that address can become the admin, whenever it signs in. There is one admin per instance.
+- **Everyone else** lands on a "Waiting for approval" page after signing in. This includes people invited to a household.
+- **The admin approves or rejects accounts** under **Accounts** in the avatar menu. An approved account can be revoked at any time; revoking or rejecting also signs the account out, and it takes effect on the next request.
+- Google sign-in is accepted only for addresses Google reports as verified.
+
+The admin account cannot be rejected or deleted from the app. To hand the role to a different address, clear it in the database, set `ADMIN_EMAIL` to the new address, and sign in with it:
+
+```sql
+DELETE FROM instance_admin_claims;
+UPDATE users SET is_admin = false WHERE is_admin;
 ```
 
 ## Supabase Setup
@@ -227,6 +244,7 @@ The dashboard includes a Chat tab that allows natural language interaction with 
 
 - **Natural Language Logging**: Say "Log a wet diaper" or "Start a nap for the baby"
 - **Query Data**: Ask "What did the baby do today?" or "How much sleep did the baby get this week?"
+- **Photos**: Attach up to 4 photos (a handwritten log, a daycare sheet, a screenshot from another app, a thermometer) and the assistant reads the entries and offers to log them. It lists what it read and asks before logging more than one entry. Photos are resized in the browser, sent to Anthropic with the message, and not stored by Finnberry
 - **Streaming Responses**: Real-time streaming of AI responses with tool execution visualization
 - **Model Selection**: Choose between Haiku (fast), Sonnet (balanced), or Opus (most capable)
 
@@ -239,11 +257,14 @@ The dashboard includes a Chat tab that allows natural language interaction with 
    ```
 3. The Chat tab will appear in the dashboard alongside Home and Reports
 
+A message with photos can be a few megabytes. If the app sits behind a reverse proxy, allow request bodies of at least 6 MB (nginx: `client_max_body_size 6m;`, its default is 1 MB).
+
 ### Example Interactions
 
 - "Log a wet diaper"
 - "Start tracking sleep"
 - "Log a 4oz bottle of formula"
+- Attach a photo of the daycare sheet and say "Log everything on this"
 - "What time was the last feeding?"
 - "Give me a summary of today's activities"
 
@@ -267,6 +288,8 @@ The MCP server allows AI agents (like Claude) to interact with your baby trackin
 | `get-diaper-summary` | Get diaper statistics |
 | `list-children` | List all children |
 | `get-daily-summary` | Get all activity for a day |
+
+Every tool except `list-children` takes a `childId`. Tools that act on an existing record, such as `end-sleep`, take the record id as well and only match a record that belongs to that child.
 
 ### Available Resources
 

@@ -3,6 +3,7 @@ import { prismaMock } from "../test/setup";
 import {
   createTestContext,
   createTestMembership,
+  mockRecordOwnership,
   createTestChild,
   createTestDiaperRecord,
   TEST_IDS,
@@ -18,6 +19,7 @@ describe("diaperRouter", () => {
 
   beforeEach(() => {
     prismaMock.child.findUnique.mockResolvedValue(createTestChild() as never);
+    mockRecordOwnership();
     prismaMock.householdMember.findUnique.mockResolvedValue(
       createTestMembership({ role: "CAREGIVER" }) as never
     );

@@ -9,10 +9,10 @@ import {
   activitySummarySchema,
 } from "@finnberry/schemas";
 import { getDateRange, calculateDurationMinutes } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const activityRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getActivityRecordsSchema)
     .query(async ({ ctx, input }) => {
       const dateFilter = input.dateRange
@@ -33,7 +33,7 @@ export const activityRouter = createTRPCRouter({
       return records;
     }),
 
-  start: householdProcedure
+  start: childProcedure
     .input(startActivitySchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -54,7 +54,7 @@ export const activityRouter = createTRPCRouter({
       return activity;
     }),
 
-  end: householdProcedure
+  end: byIdProcedure("activityRecord")
     .input(endActivitySchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -75,7 +75,7 @@ export const activityRouter = createTRPCRouter({
       return activity;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logActivitySchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -98,7 +98,7 @@ export const activityRouter = createTRPCRouter({
       return activity;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("activityRecord")
     .input(updateActivitySchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -121,7 +121,7 @@ export const activityRouter = createTRPCRouter({
       return activity;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("activityRecord")
     .input(deleteActivitySchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -138,7 +138,7 @@ export const activityRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  summary: householdProcedure
+  summary: childProcedure
     .input(activitySummarySchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getDateRange(input.period);

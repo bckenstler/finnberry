@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@finnberry/db";
+import { prisma, type UserStatus } from "@finnberry/db";
 import { randomBytes } from "crypto";
 import {
   generateAllDemoData,
@@ -46,14 +46,25 @@ export async function POST(request: Request) {
   }
 }
 
-async function createTestUser({ email, name }: { email: string; name: string }) {
+// Test users are approved unless a test asks otherwise, so that the fixtures
+// land on the dashboard and not on the approval screen.
+async function createTestUser({
+  email,
+  name,
+  status = "APPROVED",
+}: {
+  email: string;
+  name: string;
+  status?: UserStatus;
+}) {
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name },
+    update: { name, status },
     create: {
       email,
       name,
       emailVerified: new Date(),
+      status,
     },
   });
 
@@ -267,6 +278,7 @@ async function createDemoAccount() {
       email: DEMO_EMAIL,
       name: DEMO_NAME,
       emailVerified: new Date(),
+      status: "APPROVED",
     },
   });
 

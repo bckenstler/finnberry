@@ -10,10 +10,10 @@ import {
   getActivePumpingSchema,
 } from "@finnberry/schemas";
 import { getDateRange, calculateDurationMinutes } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const pumpingRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getPumpingRecordsSchema)
     .query(async ({ ctx, input }) => {
       const dateFilter = input.dateRange
@@ -33,7 +33,7 @@ export const pumpingRouter = createTRPCRouter({
       return records;
     }),
 
-  start: householdProcedure
+  start: childProcedure
     .input(startPumpingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -54,7 +54,7 @@ export const pumpingRouter = createTRPCRouter({
       return pumping;
     }),
 
-  end: householdProcedure
+  end: byIdProcedure("pumpingRecord")
     .input(endPumpingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -76,7 +76,7 @@ export const pumpingRouter = createTRPCRouter({
       return pumping;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logPumpingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -100,7 +100,7 @@ export const pumpingRouter = createTRPCRouter({
       return pumping;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("pumpingRecord")
     .input(updatePumpingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -124,7 +124,7 @@ export const pumpingRouter = createTRPCRouter({
       return pumping;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("pumpingRecord")
     .input(deletePumpingSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -141,7 +141,7 @@ export const pumpingRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  summary: householdProcedure
+  summary: childProcedure
     .input(pumpingSummarySchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getDateRange(input.period);
@@ -168,7 +168,7 @@ export const pumpingRouter = createTRPCRouter({
       };
     }),
 
-  getActive: householdProcedure
+  getActive: childProcedure
     .input(getActivePumpingSchema)
     .query(async ({ ctx, input }) => {
       // Find active pumping session (no end time)

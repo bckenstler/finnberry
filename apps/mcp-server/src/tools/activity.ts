@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, calculateDurationMinutes, formatDuration } from "@finnberry/utils";
 import {
+  requireChildId,
   buildStartResponse,
   buildEndResponse,
   buildLogResponse,
@@ -82,13 +83,14 @@ export async function handleActivityTools(
     }
 
     case "end-activity": {
+      const childId = requireChildId(args);
       const { activityId, notes } = args as {
         activityId: string;
         notes?: string;
       };
 
       const activity = await prisma.activityRecord.update({
-        where: { id: activityId },
+        where: { id: activityId, childId },
         data: {
           endTime: new Date(),
           notes,
