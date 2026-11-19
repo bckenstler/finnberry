@@ -34,7 +34,7 @@ describe("use-toast reducer", () => {
       const state = { toasts: [] };
 
       // Add multiple toasts
-      let currentState = state;
+      let currentState: ReturnType<typeof reducer> = state;
       for (let i = 0; i < 5; i++) {
         currentState = reducer(currentState, {
           type: "ADD_TOAST",

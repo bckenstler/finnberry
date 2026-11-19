@@ -360,7 +360,7 @@ If a user requests changes while on `main`:
 
 ## Environment Variables
 
-Create `.env` in `apps/web/` (see `apps/web/.env.example`):
+Create `.env` in `apps/web/` (see `apps/web/.env.example`). It is the only env file: Next.js loads it for the app, and the `db:*` scripts load it for Prisma through `packages/db/scripts/prisma-env.mjs`. Variables already set in the shell win. `turbo.json` uses `envMode: loose` so that shell variables reach tasks, which CI relies on:
 ```
 DATABASE_URL=            # Supabase PostgreSQL pooler connection
 DIRECT_URL=              # Direct connection (for migrations)

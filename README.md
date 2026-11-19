@@ -202,6 +202,8 @@ WHERE relnamespace = 'public'::regnamespace AND relkind = 'r' AND NOT relrowsecu
 | `pnpm db:generate` | Regenerate Prisma client after schema changes |
 | `pnpm db:studio` | Open Prisma Studio to browse data |
 
+These commands read the database settings from `apps/web/.env`, the same file the app uses. A variable set in the shell takes precedence over the file.
+
 ### Accessing from Other Devices
 
 Development mode (`pnpm dev`) is for the machine you are developing on. It trusts whatever host a request claims to come from, which is convenient on `localhost` and unsafe anywhere else, so do not use it to serve other devices or to hold real data.
