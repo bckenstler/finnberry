@@ -34,5 +34,8 @@ jobs:
       - name: Unit & Integration Tests
         run: pnpm test:unit && pnpm test:integration
 
+      - name: Web & MCP Server Tests
+        run: pnpm vitest run --project=@finnberry/web --project=@finnberry/mcp-server
+
       - name: Build
         run: pnpm build

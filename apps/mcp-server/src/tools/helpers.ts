@@ -138,3 +138,15 @@ export function buildLogResponse(
     ...extraFields,
   };
 }
+
+// A tool that acts on an existing record by id also names the child the record
+// belongs to, and its handler filters on both. Prisma ignores a filter whose
+// value is undefined, so a missing childId must be rejected here instead of
+// silently dropping the scoping.
+export function requireChildId(args: Record<string, unknown>): string {
+  const { childId } = args;
+  if (typeof childId !== "string" || childId.length === 0) {
+    throw new Error("childId is required");
+  }
+  return childId;
+}

@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, formatDuration } from "@finnberry/utils";
 import {
+  requireChildId,
   buildStartResponse,
   buildEndResponse,
   buildLogResponse,
@@ -52,6 +53,7 @@ export async function handleSleepTools(
     }
 
     case "end-sleep": {
+      const childId = requireChildId(args);
       const { sleepId, quality, notes } = args as {
         sleepId: string;
         quality?: number;
@@ -59,7 +61,7 @@ export async function handleSleepTools(
       };
 
       const sleep = await prisma.sleepRecord.update({
-        where: { id: sleepId },
+        where: { id: sleepId, childId },
         data: {
           endTime: new Date(),
           quality,

@@ -7,10 +7,10 @@ import {
   diaperSummarySchema,
 } from "@finnberry/schemas";
 import { getDateRange } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const diaperRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getDiaperRecordsSchema)
     .query(async ({ ctx, input }) => {
       const dateFilter = input.dateRange
@@ -31,7 +31,7 @@ export const diaperRouter = createTRPCRouter({
       return records;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logDiaperSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -57,7 +57,7 @@ export const diaperRouter = createTRPCRouter({
       return diaper;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("diaperRecord")
     .input(updateDiaperSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -83,7 +83,7 @@ export const diaperRouter = createTRPCRouter({
       return diaper;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("diaperRecord")
     .input(deleteDiaperSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -100,7 +100,7 @@ export const diaperRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  summary: householdProcedure
+  summary: childProcedure
     .input(diaperSummarySchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getDateRange(input.period);

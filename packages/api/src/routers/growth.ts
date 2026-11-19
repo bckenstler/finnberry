@@ -6,10 +6,10 @@ import {
   getGrowthRecordsSchema,
   getLatestGrowthSchema,
 } from "@finnberry/schemas";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const growthRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getGrowthRecordsSchema)
     .query(async ({ ctx, input }) => {
       const records = await ctx.prisma.growthRecord.findMany({
@@ -28,7 +28,7 @@ export const growthRouter = createTRPCRouter({
       return records;
     }),
 
-  getLatest: householdProcedure
+  getLatest: childProcedure
     .input(getLatestGrowthSchema)
     .query(async ({ ctx, input }) => {
       const latest = await ctx.prisma.growthRecord.findFirst({
@@ -39,7 +39,7 @@ export const growthRouter = createTRPCRouter({
       return latest;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logGrowthSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -63,7 +63,7 @@ export const growthRouter = createTRPCRouter({
       return growth;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("growthRecord")
     .input(updateGrowthSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -87,7 +87,7 @@ export const growthRouter = createTRPCRouter({
       return growth;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("growthRecord")
     .input(deleteGrowthSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {

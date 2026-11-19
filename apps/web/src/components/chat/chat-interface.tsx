@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { RotateCcw } from "lucide-react";
+import type { ChatImage } from "@finnberry/schemas";
 import { cn } from "@/lib/utils";
 import type { ModelId } from "@/hooks/use-chat";
 
@@ -20,6 +21,7 @@ export interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  images?: ChatImage[];
   contentBlocks?: ContentBlock[];
   isStreaming?: boolean;
 }
@@ -32,7 +34,7 @@ const MODEL_OPTIONS: { value: ModelId; label: string }[] = [
 
 interface ChatInterfaceProps {
   messages: Message[];
-  onSendMessage: (message: string) => void;
+  onSendMessage: (message: string, images: ChatImage[]) => void;
   onStop?: () => void;
   onClear?: () => void;
   isLoading?: boolean;
@@ -77,7 +79,7 @@ export function ChatInterface({
             <p className="text-sm text-muted-foreground max-w-sm">
               Ask me to log activities, check summaries, or help you track your
               baby&apos;s day. Try saying &quot;What did the baby do today?&quot; or
-              &quot;Log a wet diaper&quot;.
+              &quot;Log a wet diaper&quot;, or attach a photo of a written log.
             </p>
           </div>
         ) : (
@@ -87,6 +89,7 @@ export function ChatInterface({
                 key={message.id}
                 role={message.role}
                 content={message.content}
+                images={message.images}
                 contentBlocks={message.contentBlocks}
                 isStreaming={message.isStreaming}
               />

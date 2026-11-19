@@ -34,7 +34,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
 import { ArrowLeft, Trash2, UserMinus, UserPlus, Crown, Shield, Eye, Users } from "lucide-react";
-import type { HouseholdRole } from "@finnberry/schemas";
+import type { AssignableRole, HouseholdRole } from "@finnberry/schemas";
 
 const roleIcons: Record<HouseholdRole, React.ReactNode> = {
   OWNER: <Crown className="h-4 w-4 text-yellow-500" />,
@@ -63,7 +63,7 @@ export default function HouseholdSettingsPage() {
   const [confirmName, setConfirmName] = useState("");
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteRole, setInviteRole] = useState<HouseholdRole>("CAREGIVER");
+  const [inviteRole, setInviteRole] = useState<AssignableRole>("CAREGIVER");
   const [removeMemberDialogOpen, setRemoveMemberDialogOpen] = useState(false);
   const [memberToRemove, setMemberToRemove] = useState<{
     id: string;
@@ -178,7 +178,7 @@ export default function HouseholdSettingsPage() {
     }
   };
 
-  const handleRoleChange = (userId: string, role: HouseholdRole) => {
+  const handleRoleChange = (userId: string, role: AssignableRole) => {
     if (household) {
       updateMemberRole.mutate({
         householdId: household.id,
@@ -303,13 +303,13 @@ export default function HouseholdSettingsPage() {
                       <Label htmlFor="inviteRole">Role</Label>
                       <Select
                         value={inviteRole}
-                        onValueChange={(v) => setInviteRole(v as HouseholdRole)}
+                        onValueChange={(v) => setInviteRole(v as AssignableRole)}
                       >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="ADMIN">Admin</SelectItem>
+                          {isOwner && <SelectItem value="ADMIN">Admin</SelectItem>}
                           <SelectItem value="CAREGIVER">Caregiver</SelectItem>
                           <SelectItem value="VIEWER">Viewer</SelectItem>
                         </SelectContent>
@@ -368,7 +368,7 @@ export default function HouseholdSettingsPage() {
                     <Select
                       value={member.role}
                       onValueChange={(v) =>
-                        handleRoleChange(member.user.id, v as HouseholdRole)
+                        handleRoleChange(member.user.id, v as AssignableRole)
                       }
                     >
                       <SelectTrigger className="w-32">
