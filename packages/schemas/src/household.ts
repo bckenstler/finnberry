@@ -4,6 +4,10 @@ import { idSchema } from "./common";
 export const householdRoleSchema = z.enum(["OWNER", "ADMIN", "CAREGIVER", "VIEWER"]);
 export type HouseholdRole = z.infer<typeof householdRoleSchema>;
 
+// OWNER is granted only by creating a household, never by invite or role change.
+export const assignableRoleSchema = householdRoleSchema.exclude(["OWNER"]);
+export type AssignableRole = z.infer<typeof assignableRoleSchema>;
+
 export const createHouseholdSchema = z.object({
   name: z.string().min(1).max(100),
 });
@@ -17,8 +21,8 @@ export type UpdateHouseholdInput = z.infer<typeof updateHouseholdSchema>;
 
 export const inviteMemberSchema = z.object({
   householdId: idSchema,
-  email: z.string().email(),
-  role: householdRoleSchema.default("CAREGIVER"),
+  email: z.string().email().toLowerCase(),
+  role: assignableRoleSchema.default("CAREGIVER"),
 });
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;
 
@@ -30,7 +34,7 @@ export type AcceptInviteInput = z.infer<typeof acceptInviteSchema>;
 export const updateMemberRoleSchema = z.object({
   householdId: idSchema,
   userId: idSchema,
-  role: householdRoleSchema,
+  role: assignableRoleSchema,
 });
 export type UpdateMemberRoleInput = z.infer<typeof updateMemberRoleSchema>;
 

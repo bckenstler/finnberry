@@ -32,7 +32,7 @@ export default function HomePage() {
             />
             <FeatureCard
               title="Multi-Caregiver"
-              description="Share with family and caregivers with real-time sync"
+              description="Share with family and caregivers, with entries synced across devices"
             />
           </div>
         </div>

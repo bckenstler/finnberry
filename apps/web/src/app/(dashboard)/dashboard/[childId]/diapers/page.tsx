@@ -2,7 +2,6 @@
 
 import { use } from "react";
 import { trpc } from "@/lib/trpc/provider";
-import { useRealtimeSync } from "@/hooks/use-realtime";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +19,6 @@ export default function DiapersPage({
   const { toast } = useToast();
   const utils = trpc.useUtils();
 
-  useRealtimeSync(childId);
 
   const { data: child } = trpc.child.get.useQuery({ id: childId });
   const { data: todayRecords } = trpc.diaper.list.useQuery({

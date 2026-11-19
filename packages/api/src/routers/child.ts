@@ -6,7 +6,7 @@ import {
   getChildSchema,
   listChildrenSchema,
 } from "@finnberry/schemas";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, householdProcedure } from "../trpc";
 
 export const childRouter = createTRPCRouter({
   list: householdProcedure
@@ -20,7 +20,7 @@ export const childRouter = createTRPCRouter({
       return children;
     }),
 
-  get: householdProcedure
+  get: byIdProcedure("child")
     .input(getChildSchema)
     .query(async ({ ctx, input }) => {
       const child = await ctx.prisma.child.findUnique({
@@ -62,7 +62,7 @@ export const childRouter = createTRPCRouter({
       return child;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("child")
     .input(updateChildSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -85,7 +85,7 @@ export const childRouter = createTRPCRouter({
       return child;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("child")
     .input(deleteChildSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole !== "OWNER" && ctx.memberRole !== "ADMIN") {

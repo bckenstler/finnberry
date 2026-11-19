@@ -6,10 +6,10 @@ import {
   getTemperatureRecordsSchema,
   getLatestTemperatureSchema,
 } from "@finnberry/schemas";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const temperatureRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getTemperatureRecordsSchema)
     .query(async ({ ctx, input }) => {
       const records = await ctx.prisma.temperatureRecord.findMany({
@@ -28,7 +28,7 @@ export const temperatureRouter = createTRPCRouter({
       return records;
     }),
 
-  getLatest: householdProcedure
+  getLatest: childProcedure
     .input(getLatestTemperatureSchema)
     .query(async ({ ctx, input }) => {
       const latest = await ctx.prisma.temperatureRecord.findFirst({
@@ -39,7 +39,7 @@ export const temperatureRouter = createTRPCRouter({
       return latest;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logTemperatureSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -61,7 +61,7 @@ export const temperatureRouter = createTRPCRouter({
       return temperature;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("temperatureRecord")
     .input(updateTemperatureSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -83,7 +83,7 @@ export const temperatureRouter = createTRPCRouter({
       return temperature;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("temperatureRecord")
     .input(deleteTemperatureSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {

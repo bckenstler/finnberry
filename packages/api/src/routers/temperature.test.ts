@@ -3,6 +3,7 @@ import { prismaMock } from "../test/setup";
 import {
   createTestContext,
   createTestMembership,
+  mockRecordOwnership,
   createTestChild,
   createTestTemperatureRecord,
   TEST_IDS,
@@ -19,6 +20,7 @@ describe("temperatureRouter", () => {
   beforeEach(() => {
     // Setup default household membership
     prismaMock.child.findUnique.mockResolvedValue(createTestChild() as never);
+    mockRecordOwnership();
     prismaMock.householdMember.findUnique.mockResolvedValue(
       createTestMembership({ role: "CAREGIVER" }) as never
     );

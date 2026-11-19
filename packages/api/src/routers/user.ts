@@ -50,6 +50,13 @@ export const userRouter = createTRPCRouter({
         });
       }
 
+      if (ctx.session.user.isAdmin) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "The admin account cannot be deleted",
+        });
+      }
+
       // Check for households where user is the sole owner
       const ownedHouseholds = await ctx.prisma.householdMember.findMany({
         where: {

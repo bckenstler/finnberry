@@ -11,7 +11,7 @@ import {
   addHours,
   format,
 } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, childProcedure } from "../trpc";
 
 // Day starts at 8am for baby timeline (sleep patterns often cross midnight)
 const DAY_START_HOUR = 8;
@@ -28,7 +28,7 @@ export const timelineRouter = createTRPCRouter({
    * Get last activities for each category (for Home view cards)
    * Returns the most recent activity of each type plus any active timers
    */
-  getLastActivities: householdProcedure
+  getLastActivities: childProcedure
     .input(getLastActivitiesSchema)
     .query(async ({ ctx, input }) => {
       // Fetch all data in parallel
@@ -177,7 +177,7 @@ export const timelineRouter = createTRPCRouter({
    * Get all activities for a specific day (for Day timeline view)
    * Day runs from 8am to 8am next day to capture overnight sleep
    */
-  getDay: householdProcedure
+  getDay: childProcedure
     .input(getDayTimelineSchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getTimelineDayBoundaries(input.date);
@@ -290,7 +290,7 @@ export const timelineRouter = createTRPCRouter({
    * Get activities for a week (for Week grid view)
    * Returns data organized by day
    */
-  getWeek: householdProcedure
+  getWeek: childProcedure
     .input(getWeekTimelineSchema)
     .query(async ({ ctx, input }) => {
       const weekStart = startOfDay(input.weekStart);
@@ -473,7 +473,7 @@ export const timelineRouter = createTRPCRouter({
   /**
    * Get activities for list view (chronological, grouped by date)
    */
-  getList: householdProcedure
+  getList: childProcedure
     .input(getListTimelineSchema)
     .query(async ({ ctx, input }) => {
       const weekStart = startOfDay(input.weekStart);

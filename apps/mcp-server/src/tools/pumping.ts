@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@finnberry/db";
 import { getDateRange, formatDuration } from "@finnberry/utils";
 import {
+  requireChildId,
   buildStartResponse,
   buildEndResponse,
   buildLogResponse,
@@ -51,6 +52,7 @@ export async function handlePumpingTools(
     }
 
     case "end-pumping": {
+      const childId = requireChildId(args);
       const { pumpingId, amountMl, notes } = args as {
         pumpingId: string;
         amountMl?: number;
@@ -58,7 +60,7 @@ export async function handlePumpingTools(
       };
 
       const pumping = await prisma.pumpingRecord.update({
-        where: { id: pumpingId },
+        where: { id: pumpingId, childId },
         data: {
           endTime: new Date(),
           amountMl,
