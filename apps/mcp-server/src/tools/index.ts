@@ -40,6 +40,10 @@ export function registerTools(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child the sleep record belongs to",
+          },
           sleepId: {
             type: "string",
             description: "The ID of the sleep record to end",
@@ -55,7 +59,7 @@ export function registerTools(): Tool[] {
             description: "Optional notes about the sleep",
           },
         },
-        required: ["sleepId"],
+        required: ["childId", "sleepId"],
       },
     },
     {
@@ -287,6 +291,10 @@ export function registerTools(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child the pumping record belongs to",
+          },
           pumpingId: {
             type: "string",
             description: "The ID of the pumping record to end",
@@ -300,7 +308,7 @@ export function registerTools(): Tool[] {
             description: "Optional notes about the pumping session",
           },
         },
-        required: ["pumpingId"],
+        required: ["childId", "pumpingId"],
       },
     },
     {
@@ -415,6 +423,10 @@ export function registerTools(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child the medicine belongs to",
+          },
           medicineId: {
             type: "string",
             description: "The ID of the medicine",
@@ -438,7 +450,7 @@ export function registerTools(): Tool[] {
             description: "Notes about this dose",
           },
         },
-        required: ["medicineId"],
+        required: ["childId", "medicineId"],
       },
     },
     {
@@ -447,6 +459,10 @@ export function registerTools(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child the medicine belongs to",
+          },
           medicineId: {
             type: "string",
             description: "The ID of the medicine",
@@ -457,7 +473,7 @@ export function registerTools(): Tool[] {
             default: "week",
           },
         },
-        required: ["medicineId"],
+        required: ["childId", "medicineId"],
       },
     },
 
@@ -627,6 +643,10 @@ export function registerTools(): Tool[] {
       inputSchema: {
         type: "object",
         properties: {
+          childId: {
+            type: "string",
+            description: "The ID of the child the activity record belongs to",
+          },
           activityId: {
             type: "string",
             description: "The ID of the activity record to end",
@@ -636,7 +656,7 @@ export function registerTools(): Tool[] {
             description: "Optional notes about the activity",
           },
         },
-        required: ["activityId"],
+        required: ["childId", "activityId"],
       },
     },
     {
@@ -1188,6 +1208,18 @@ export function registerTools(): Tool[] {
   ];
 }
 
+// The text returned here goes to the model and on to the person chatting. A
+// handler's own error says what was wrong with the request. A Prisma error
+// describes the query and the schema, so it is logged and replaced.
+function describeToolError(error: unknown): string {
+  if (!(error instanceof Error)) return "The tool failed.";
+  if (error.name.startsWith("PrismaClient")) {
+    console.error("Tool database error:", error);
+    return "The record could not be found or saved.";
+  }
+  return error.message;
+}
+
 export async function handleToolCall(
   name: string,
   args: Record<string, unknown>,
@@ -1250,12 +1282,7 @@ export async function handleToolCall(
     };
   } catch (error) {
     return {
-      content: [
-        {
-          type: "text",
-          text: `Error: ${error instanceof Error ? error.message : String(error)}`,
-        },
-      ],
+      content: [{ type: "text", text: `Error: ${describeToolError(error)}` }],
     };
   }
 }

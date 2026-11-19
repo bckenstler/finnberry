@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { prismaMock } from "../test/setup";
-import { createTestContext, createTestMembership, TEST_IDS } from "../test/helpers";
+import {
+  createTestContext,
+  createTestMembership,
+  createTestUser,
+  TEST_IDS,
+} from "../test/helpers";
 import { createCallerFactory } from "../trpc";
 import { userRouter } from "./user";
 
@@ -66,6 +71,17 @@ describe("userRouter", () => {
   });
 
   describe("delete", () => {
+    it("refuses to delete the admin account", async () => {
+      const caller = createCaller(
+        createTestContext({ session: createTestUser({ user: { isAdmin: true } }) })
+      );
+
+      await expect(
+        caller.delete({ confirmEmail: "test@example.com" })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
+    });
+
     it("throws BAD_REQUEST when email confirmation does not match", async () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
@@ -76,6 +92,54 @@ describe("userRouter", () => {
         code: "BAD_REQUEST",
         message: "Email confirmation does not match your account email",
       });
+    });
+
+    const ownedHouseholdWith = (others: Array<{ userId: string; role: string }>) =>
+      prismaMock.householdMember.findMany.mockResolvedValue([
+        {
+          ...createTestMembership({ role: "OWNER" }),
+          household: {
+            id: TEST_IDS.householdId,
+            name: "Test Household",
+            members: [
+              createTestMembership({ role: "OWNER" }),
+              ...others.map((other) => createTestMembership(other)),
+            ],
+          },
+        },
+      ] as never);
+
+    it("hands ownership to a caregiver when there is no admin", async () => {
+      const caller = createCaller(createTestContext());
+      ownedHouseholdWith([
+        { userId: "viewer-user", role: "VIEWER" },
+        { userId: "caregiver-user", role: "CAREGIVER" },
+      ]);
+
+      await caller.delete({ confirmEmail: "test@example.com" });
+
+      expect(prismaMock.householdMember.update).toHaveBeenCalledWith({
+        where: {
+          householdId_userId: {
+            householdId: TEST_IDS.householdId,
+            userId: "caregiver-user",
+          },
+        },
+        data: { role: "OWNER" },
+      });
+    });
+
+    it("does not promote a viewer to owner, and deletes nothing", async () => {
+      const caller = createCaller(createTestContext());
+      ownedHouseholdWith([{ userId: "viewer-user", role: "VIEWER" }]);
+
+      await expect(
+        caller.delete({ confirmEmail: "test@example.com" })
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+
+      expect(prismaMock.householdMember.update).not.toHaveBeenCalled();
+      expect(prismaMock.household.delete).not.toHaveBeenCalled();
+      expect(prismaMock.user.delete).not.toHaveBeenCalled();
     });
 
     it("deletes user and transfers household ownership", async () => {

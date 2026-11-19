@@ -10,10 +10,10 @@ import {
   sleepSummarySchema,
 } from "@finnberry/schemas";
 import { getDateRange, calculateDurationMinutes } from "@finnberry/utils";
-import { createTRPCRouter, householdProcedure } from "../trpc";
+import { createTRPCRouter, byIdProcedure, childProcedure } from "../trpc";
 
 export const sleepRouter = createTRPCRouter({
-  list: householdProcedure
+  list: childProcedure
     .input(getSleepRecordsSchema)
     .query(async ({ ctx, input }) => {
       const dateFilter = input.dateRange
@@ -33,7 +33,7 @@ export const sleepRouter = createTRPCRouter({
       return records;
     }),
 
-  getActive: householdProcedure
+  getActive: childProcedure
     .input(getActiveSleepSchema)
     .query(async ({ ctx, input }) => {
       const activeSleep = await ctx.prisma.sleepRecord.findFirst({
@@ -47,7 +47,7 @@ export const sleepRouter = createTRPCRouter({
       return activeSleep;
     }),
 
-  start: householdProcedure
+  start: childProcedure
     .input(startSleepSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -82,7 +82,7 @@ export const sleepRouter = createTRPCRouter({
       return sleep;
     }),
 
-  end: householdProcedure
+  end: byIdProcedure("sleepRecord")
     .input(endSleepSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -104,7 +104,7 @@ export const sleepRouter = createTRPCRouter({
       return sleep;
     }),
 
-  log: householdProcedure
+  log: childProcedure
     .input(logSleepSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -128,7 +128,7 @@ export const sleepRouter = createTRPCRouter({
       return sleep;
     }),
 
-  update: householdProcedure
+  update: byIdProcedure("sleepRecord")
     .input(updateSleepSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -152,7 +152,7 @@ export const sleepRouter = createTRPCRouter({
       return sleep;
     }),
 
-  delete: householdProcedure
+  delete: byIdProcedure("sleepRecord")
     .input(deleteSleepSchema)
     .mutation(async ({ ctx, input }) => {
       if (ctx.memberRole === "VIEWER") {
@@ -169,7 +169,7 @@ export const sleepRouter = createTRPCRouter({
       return { success: true };
     }),
 
-  summary: householdProcedure
+  summary: childProcedure
     .input(sleepSummarySchema)
     .query(async ({ ctx, input }) => {
       const { start, end } = getDateRange(input.period);

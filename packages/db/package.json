@@ -13,7 +13,8 @@
   },
   "scripts": {
     "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:push": "prisma db push && pnpm run db:rls",
+    "db:rls": "prisma db execute --file prisma/rls.sql --schema prisma/schema.prisma",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "type-check": "tsc --noEmit"

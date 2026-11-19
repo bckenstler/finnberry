@@ -1,41 +1,95 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@finnberry/db";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { z } from "zod";
 import {
   generateAllDemoData,
   generateMedicineRecords,
 } from "./demo-data-generators";
 
-// Only allow in development/test environments
-const isTestEnv = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
+// Every user, household and child this endpoint creates or deletes carries
+// this prefix, so it cannot reach an account a person actually uses.
+const TEST_PREFIX = "e2e-test";
+const SECRET_HEADER = "x-test-seed-secret";
+const MIN_SECRET_LENGTH = 16;
+
+// Hashing first gives timingSafeEqual the equal-length inputs it requires.
+function secretsMatch(given: string, expected: string): boolean {
+  const digest = (value: string) => createHash("sha256").update(value).digest();
+  return timingSafeEqual(digest(given), digest(expected));
+}
+
+// This endpoint signs in as any test user and deletes data with nobody signed
+// in. It answers only where someone turned it on deliberately: not in a
+// production build, with the opt-in flag set, to a caller holding the secret.
+function isCallAllowed(request: Request): boolean {
+  const secret = process.env.TEST_SEED_SECRET ?? "";
+  if (process.env.NODE_ENV === "production") return false;
+  if (process.env.ENABLE_TEST_SEED !== "1") return false;
+  if (secret.length < MIN_SECRET_LENGTH) return false;
+  return secretsMatch(request.headers.get(SECRET_HEADER) ?? "", secret);
+}
+
+const testName = z.string().max(200).startsWith(TEST_PREFIX);
+const recordId = z.string().min(1).max(64);
+
+const seedRequestSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("createTestUser"),
+    email: z.string().email().max(200).startsWith(TEST_PREFIX),
+    name: testName,
+    // Approved unless a test asks otherwise, so that the fixtures land on the
+    // dashboard and not on the approval screen.
+    status: z.enum(["PENDING", "APPROVED", "REJECTED"]).default("APPROVED"),
+  }),
+  z.object({ action: z.literal("createTestSession"), userId: recordId }),
+  z.object({
+    action: z.literal("createTestHousehold"),
+    name: testName,
+    userId: recordId,
+  }),
+  z.object({
+    action: z.literal("createTestChild"),
+    name: testName,
+    birthDate: z.string().datetime(),
+    householdId: recordId,
+    gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
+  }),
+  z.object({ action: z.literal("cleanup") }),
+  z.object({ action: z.literal("createDemoAccount") }),
+]);
+
+type SeedRequest = z.infer<typeof seedRequestSchema>;
+type SeedAction<A extends SeedRequest["action"]> = Extract<SeedRequest, { action: A }>;
+
+const notATestRecord = () =>
+  NextResponse.json({ error: "Not a test record" }, { status: 400 });
 
 export async function POST(request: Request) {
-  if (!isTestEnv) {
-    return NextResponse.json(
-      { error: "Test endpoints are only available in development/test environments" },
-      { status: 403 }
-    );
+  if (!isCallAllowed(request)) {
+    return new NextResponse(null, { status: 404 });
   }
 
-  try {
-    const body = await request.json();
-    const { action } = body;
+  const parsed = seedRequestSchema.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return NextResponse.json({ error: "Invalid seed request" }, { status: 400 });
+  }
+  const seedRequest = parsed.data;
 
-    switch (action) {
+  try {
+    switch (seedRequest.action) {
       case "createTestUser":
-        return await createTestUser(body);
+        return await createTestUser(seedRequest);
       case "createTestSession":
-        return await createTestSession(body);
+        return await createTestSession(seedRequest);
       case "createTestHousehold":
-        return await createTestHousehold(body);
+        return await createTestHousehold(seedRequest);
       case "createTestChild":
-        return await createTestChild(body);
+        return await createTestChild(seedRequest);
       case "cleanup":
-        return await cleanup(body);
+        return await cleanup();
       case "createDemoAccount":
         return await createDemoAccount();
-      default:
-        return NextResponse.json({ error: "Unknown action" }, { status: 400 });
     }
   } catch (error) {
     console.error("Test seed error:", error);
@@ -46,21 +100,32 @@ export async function POST(request: Request) {
   }
 }
 
-async function createTestUser({ email, name }: { email: string; name: string }) {
+async function isTestUser(userId: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+  return user?.email?.startsWith(TEST_PREFIX) === true;
+}
+
+async function createTestUser({ email, name, status }: SeedAction<"createTestUser">) {
   const user = await prisma.user.upsert({
     where: { email },
-    update: { name },
+    update: { name, status },
     create: {
       email,
       name,
       emailVerified: new Date(),
+      status,
     },
   });
 
   return NextResponse.json({ user });
 }
 
-async function createTestSession({ userId }: { userId: string }) {
+async function createTestSession({ userId }: SeedAction<"createTestSession">) {
+  if (!(await isTestUser(userId))) return notATestRecord();
+
   // Generate a unique session token
   const sessionToken = randomBytes(32).toString("hex");
   const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
@@ -76,13 +141,9 @@ async function createTestSession({ userId }: { userId: string }) {
   return NextResponse.json({ session, sessionToken });
 }
 
-async function createTestHousehold({
-  name,
-  userId,
-}: {
-  name: string;
-  userId: string;
-}) {
+async function createTestHousehold({ name, userId }: SeedAction<"createTestHousehold">) {
+  if (!(await isTestUser(userId))) return notATestRecord();
+
   const household = await prisma.household.create({
     data: {
       name,
@@ -106,12 +167,13 @@ async function createTestChild({
   birthDate,
   householdId,
   gender,
-}: {
-  name: string;
-  birthDate: string;
-  householdId: string;
-  gender?: "MALE" | "FEMALE" | "OTHER";
-}) {
+}: SeedAction<"createTestChild">) {
+  const household = await prisma.household.findUnique({
+    where: { id: householdId },
+    select: { name: true },
+  });
+  if (!household?.name.startsWith(TEST_PREFIX)) return notATestRecord();
+
   const child = await prisma.child.create({
     data: {
       name,
@@ -124,7 +186,8 @@ async function createTestChild({
   return NextResponse.json({ child });
 }
 
-async function cleanup({ prefix = "e2e-test" }: { prefix?: string }) {
+async function cleanup() {
+  const prefix = TEST_PREFIX;
   // Delete test data in correct order (respecting foreign keys)
 
   // Delete tracking records for test children
@@ -267,6 +330,7 @@ async function createDemoAccount() {
       email: DEMO_EMAIL,
       name: DEMO_NAME,
       emailVerified: new Date(),
+      status: "APPROVED",
     },
   });
 

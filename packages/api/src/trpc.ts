@@ -1,7 +1,8 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { ZodError } from "zod";
-import { prisma, type PrismaClient } from "@finnberry/db";
+import { z, ZodError } from "zod";
+import { prisma, type PrismaClient, type UserStatus } from "@finnberry/db";
+import { idSchema } from "@finnberry/schemas";
 
 export type TRPCContext = {
   prisma: PrismaClient;
@@ -11,6 +12,8 @@ export type TRPCContext = {
       email?: string | null;
       name?: string | null;
       image?: string | null;
+      status: UserStatus;
+      isAdmin: boolean;
     };
   } | null;
   headers: Headers;
@@ -62,6 +65,14 @@ const enforceUserIsAuthed = t.middleware(({ ctx, next }) => {
   if (!ctx.session?.user) {
     throw new TRPCError({ code: "UNAUTHORIZED" });
   }
+  // Signing in is open to anyone the providers accept. Using the app is not:
+  // the instance admin approves each account first.
+  if (ctx.session.user.status !== "APPROVED") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Your account has not been approved",
+    });
+  }
   return next({
     ctx: {
       session: { ...ctx.session, user: ctx.session.user },
@@ -73,50 +84,59 @@ export const protectedProcedure = t.procedure
   .use(timingMiddleware)
   .use(enforceUserIsAuthed);
 
-// Helper to extract household ID from various input formats
-async function resolveHouseholdId(
-  prisma: TRPCContext["prisma"],
-  input: { householdId?: string; childId?: string; id?: string }
-): Promise<string | undefined> {
-  // Direct householdId takes priority
-  if (input.householdId) {
-    return input.householdId;
+export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (!ctx.session.user.isAdmin) {
+    throw new TRPCError({ code: "FORBIDDEN" });
   }
+  return next();
+});
 
-  // Check for childId first (explicit child reference)
-  if (input.childId) {
-    const child = await prisma.child.findUnique({
-      where: { id: input.childId },
-      select: { householdId: true },
-    });
-    if (child?.householdId) {
-      return child.householdId;
-    }
-  }
+const viaChild = { child: { select: { householdId: true } } } as const;
 
-  // For 'id' field, try as child first, then as household
-  if (input.id) {
-    // Try as child ID
-    const child = await prisma.child.findUnique({
-      where: { id: input.id },
-      select: { householdId: true },
-    });
-    if (child?.householdId) {
-      return child.householdId;
-    }
+// Maps each kind of resource a procedure can target to the household that
+// owns it. A resolver returns undefined when the resource does not exist.
+const householdIdResolvers = {
+  household: async (_prisma, id) => id,
+  child: async (prisma, id) =>
+    (await prisma.child.findUnique({ where: { id }, select: { householdId: true } }))
+      ?.householdId,
+  sleepRecord: async (prisma, id) =>
+    (await prisma.sleepRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  feedingRecord: async (prisma, id) =>
+    (await prisma.feedingRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  diaperRecord: async (prisma, id) =>
+    (await prisma.diaperRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  pumpingRecord: async (prisma, id) =>
+    (await prisma.pumpingRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  growthRecord: async (prisma, id) =>
+    (await prisma.growthRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  activityRecord: async (prisma, id) =>
+    (await prisma.activityRecord.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  temperatureRecord: async (prisma, id) =>
+    (await prisma.temperatureRecord.findUnique({ where: { id }, select: viaChild }))
+      ?.child.householdId,
+  medicine: async (prisma, id) =>
+    (await prisma.medicine.findUnique({ where: { id }, select: viaChild }))?.child
+      .householdId,
+  medicineRecord: async (prisma, id) =>
+    (
+      await prisma.medicineRecord.findUnique({
+        where: { id },
+        select: { medicine: { select: viaChild } },
+      })
+    )?.medicine.child.householdId,
+} satisfies Record<
+  string,
+  (prisma: TRPCContext["prisma"], id: string) => Promise<string | undefined>
+>;
 
-    // Try as household ID directly (for routes like household.update)
-    const household = await prisma.household.findUnique({
-      where: { id: input.id },
-      select: { id: true },
-    });
-    if (household) {
-      return household.id;
-    }
-  }
-
-  return undefined;
-}
+export type HouseholdScope = keyof typeof householdIdResolvers;
 
 // Helper to get membership and validate access
 async function validateHouseholdAccess(
@@ -143,31 +163,53 @@ async function validateHouseholdAccess(
   return membership;
 }
 
-// Create a procedure that validates household access using input
-// This approach works with tRPC v11's caller factory for testing
-export const householdProcedure = protectedProcedure.use(
-  async ({ ctx, next, getRawInput }) => {
-    const rawInput = await getRawInput();
-    const input = (rawInput ?? {}) as { householdId?: string; childId?: string; id?: string };
-
-    const householdId = await resolveHouseholdId(ctx.prisma, input);
-
-    if (householdId) {
-      const membership = await validateHouseholdAccess(
-        ctx.prisma,
-        householdId,
-        ctx.session.user.id
-      );
-
-      return next({
-        ctx: {
-          ...ctx,
-          householdId,
-          memberRole: membership.role,
-        },
-      });
-    }
-
-    return next({ ctx });
+async function authorizeHouseholdAccess(
+  ctx: { prisma: TRPCContext["prisma"]; session: { user: { id: string } } },
+  scope: HouseholdScope,
+  resourceId: string
+) {
+  const householdId = await householdIdResolvers[scope](ctx.prisma, resourceId);
+  if (!householdId) {
+    throw new TRPCError({ code: "NOT_FOUND" });
   }
-);
+
+  const membership = await validateHouseholdAccess(
+    ctx.prisma,
+    householdId,
+    ctx.session.user.id
+  );
+
+  return { householdId, memberRole: membership.role };
+}
+
+// Each household-scoped procedure authorizes on exactly one validated input
+// key, the same key its handler acts on. A router adds the rest of its input
+// with a second .input(), which tRPC merges with this one. Authorizing on the
+// raw input instead would let a caller name one household to be checked and a
+// different resource to be acted on.
+export const householdProcedure = protectedProcedure
+  .input(z.object({ householdId: idSchema }))
+  .use(async ({ ctx, input, next }) =>
+    next({ ctx: await authorizeHouseholdAccess(ctx, "household", input.householdId) })
+  );
+
+export const childProcedure = protectedProcedure
+  .input(z.object({ childId: idSchema }))
+  .use(async ({ ctx, input, next }) =>
+    next({ ctx: await authorizeHouseholdAccess(ctx, "child", input.childId) })
+  );
+
+export const medicineProcedure = protectedProcedure
+  .input(z.object({ medicineId: idSchema }))
+  .use(async ({ ctx, input, next }) =>
+    next({ ctx: await authorizeHouseholdAccess(ctx, "medicine", input.medicineId) })
+  );
+
+// For procedures whose `id` names the resource itself; the caller declares
+// which kind of resource that is.
+export const byIdProcedure = (scope: HouseholdScope) =>
+  protectedProcedure
+    .input(z.object({ id: idSchema }))
+    .use(async ({ ctx, input, next }) =>
+      next({ ctx: await authorizeHouseholdAccess(ctx, scope, input.id) })
+    );

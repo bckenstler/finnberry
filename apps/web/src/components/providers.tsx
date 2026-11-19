@@ -6,6 +6,8 @@ import { TRPCProvider } from "@/lib/trpc/provider";
 import { SessionProvider } from "next-auth/react";
 import { Toaster } from "@/components/ui/toaster";
 
+const CAREGIVER_SYNC_INTERVAL_MS = 30_000;
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
     () =>
@@ -13,7 +15,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
         defaultOptions: {
           queries: {
             staleTime: 5 * 1000,
-            refetchOnWindowFocus: false,
+            // How another caregiver's entries reach this screen: every query
+            // refetches while the tab is visible and when it regains focus.
+            refetchInterval: CAREGIVER_SYNC_INTERVAL_MS,
+            refetchOnWindowFocus: true,
           },
         },
       })

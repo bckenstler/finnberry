@@ -9,6 +9,7 @@ import { ReportsView } from "@/components/dashboard/reports-view";
 import { ChildSelector } from "@/components/dashboard/child-selector";
 import { ChatInterface } from "@/components/chat";
 import { useChat } from "@/hooks/use-chat";
+import { useAllowedChatModels } from "@/hooks/use-allowed-chat-models";
 import Link from "next/link";
 import { Settings, Home, BarChart3, MessageCircle } from "lucide-react";
 
@@ -100,8 +101,10 @@ export default function ChildDashboardPage({
 
 // Separate component to avoid running useChat when chat tab is not active
 function ChatTab({ childId }: { childId: string }) {
+  const allowedModels = useAllowedChatModels();
   const { messages, isLoading, model, setModel, sendMessage, stop, clearMessages } = useChat({
     childId,
+    allowedModels,
   });
 
   return (
@@ -113,6 +116,7 @@ function ChatTab({ childId }: { childId: string }) {
         onClear={clearMessages}
         isLoading={isLoading}
         model={model}
+        models={allowedModels}
         onModelChange={setModel}
       />
     </div>

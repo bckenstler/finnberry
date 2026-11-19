@@ -7,6 +7,7 @@ import {
   createTestHousehold,
   createTestMembership,
   createTestInvite,
+  mockMemberships,
   TEST_IDS,
 } from "../test/helpers";
 import { createCallerFactory } from "../trpc";
@@ -17,6 +18,7 @@ const createCaller = createCallerFactory(householdRouter);
 describe("householdRouter", () => {
   const householdId = TEST_IDS.householdId;
   const userId = TEST_IDS.userId;
+  const otherUserId = "clq1234567890abcdefghij95";
 
   describe("list", () => {
     it("returns households for authenticated user", async () => {
@@ -314,9 +316,10 @@ describe("householdRouter", () => {
       const ctx = createTestContext();
       const caller = createCaller(ctx);
 
-      prismaMock.householdMember.findUnique.mockResolvedValue(
-        createTestMembership({ role: "OWNER" }) as never
-      );
+      mockMemberships([
+        { role: "OWNER" },
+        { userId: "clq1234567890abcdefghij98", role: "CAREGIVER" },
+      ]);
       prismaMock.householdMember.update.mockResolvedValue(
         createTestMembership({ role: "ADMIN", userId: "clq1234567890abcdefghij98" }) as never
       );
@@ -418,6 +421,129 @@ describe("householdRouter", () => {
       await expect(
         caller.removeMember({ householdId, userId: ownerUserId })
       ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    });
+
+    it("does not let an OWNER leave and orphan the household", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([{ role: "OWNER" }]);
+
+      await expect(
+        caller.removeMember({ householdId, userId })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.householdMember.delete).not.toHaveBeenCalled();
+    });
+
+    it("does not let an ADMIN remove another ADMIN", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([
+        { role: "ADMIN" },
+        { userId: otherUserId, role: "ADMIN" },
+      ]);
+
+      await expect(
+        caller.removeMember({ householdId, userId: otherUserId })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.householdMember.delete).not.toHaveBeenCalled();
+    });
+
+    it("lets an OWNER remove an ADMIN", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([
+        { role: "OWNER" },
+        { userId: otherUserId, role: "ADMIN" },
+      ]);
+      prismaMock.householdMember.delete.mockResolvedValue({} as never);
+
+      await expect(
+        caller.removeMember({ householdId, userId: otherUserId })
+      ).resolves.toEqual({ success: true });
+    });
+  });
+
+  describe("owner role protection", () => {
+    it("rejects an invite with the OWNER role", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([{ role: "OWNER" }]);
+
+      await expect(
+        caller.invite({ householdId, email: "new@example.com", role: "OWNER" as never })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(prismaMock.householdInvite.create).not.toHaveBeenCalled();
+    });
+
+    it("does not let an ADMIN invite another ADMIN", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([{ role: "ADMIN" }]);
+
+      await expect(
+        caller.invite({ householdId, email: "new@example.com", role: "ADMIN" })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.householdInvite.create).not.toHaveBeenCalled();
+    });
+
+    it("rejects promoting a member to OWNER", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([
+        { role: "OWNER" },
+        { userId: otherUserId, role: "ADMIN" },
+      ]);
+
+      await expect(
+        caller.updateMemberRole({
+          householdId,
+          userId: otherUserId,
+          role: "OWNER" as never,
+        })
+      ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+      expect(prismaMock.householdMember.update).not.toHaveBeenCalled();
+    });
+
+    it("does not let one OWNER demote another", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([
+        { role: "OWNER" },
+        { userId: otherUserId, role: "OWNER" },
+      ]);
+
+      await expect(
+        caller.updateMemberRole({ householdId, userId: otherUserId, role: "VIEWER" })
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(prismaMock.householdMember.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("invite email casing", () => {
+    it("stores the invited address in lower case", async () => {
+      const caller = createCaller(createTestContext());
+      mockMemberships([{ role: "OWNER" }]);
+      prismaMock.user.findUnique.mockResolvedValue(null);
+      prismaMock.householdInvite.create.mockResolvedValue(createTestInvite() as never);
+
+      await caller.invite({ householdId, email: "New.Parent@Example.com" });
+
+      expect(prismaMock.householdInvite.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ email: "new.parent@example.com" }),
+        })
+      );
+    });
+
+    it("accepts an invite when only the casing of the address differs", async () => {
+      const caller = createCaller(
+        createTestContext({
+          session: createTestUser({
+            user: { id: userId, email: "Invite@Example.com" },
+          }),
+        })
+      );
+      prismaMock.householdInvite.findUnique.mockResolvedValue(
+        createTestInvite() as never
+      );
+      prismaMock.$transaction.mockResolvedValue([] as never);
+
+      await expect(
+        caller.acceptInvite({ token: "test-token-123" })
+      ).resolves.toEqual({ success: true, householdId });
     });
   });
 });

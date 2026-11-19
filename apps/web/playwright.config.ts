@@ -1,4 +1,11 @@
+import { existsSync } from "node:fs";
 import { defineConfig, devices } from "@playwright/test";
+
+// The fixtures present TEST_SEED_SECRET to the seed API. Reading the dev
+// server's own .env keeps the two in step; variables already set win.
+if (existsSync(".env")) {
+  process.loadEnvFile(".env");
+}
 
 export default defineConfig({
   testDir: "./e2e",

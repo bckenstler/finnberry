@@ -19,13 +19,17 @@ export const TEST_IDS = {
   temperatureId: "clq1234567890abcdefghij14",
 } as const;
 
-export function createTestUser(overrides?: Partial<TRPCContext["session"]>) {
+type SessionUser = NonNullable<TRPCContext["session"]>["user"];
+
+export function createTestUser(overrides?: { user?: Partial<SessionUser> }) {
   return {
     user: {
       id: TEST_IDS.userId,
       email: "test@example.com",
       name: "Test User",
       image: null,
+      status: "APPROVED" as const,
+      isAdmin: false,
       ...overrides?.user,
     },
   };
@@ -85,6 +89,51 @@ export function createTestMembership(overrides?: Record<string, unknown>) {
     createdAt: new Date(),
     ...overrides,
   };
+}
+
+// Answers membership lookups by the household and user actually asked about,
+// so a test can tell which household a procedure authorized against. Anyone
+// not listed is not a member.
+export function mockMemberships(
+  members: Array<{ householdId?: string; userId?: string; role: string }>
+) {
+  prismaMock.householdMember.findUnique.mockImplementation(((args: {
+    where: { householdId_userId: { householdId: string; userId: string } };
+  }) => {
+    const asked = args.where.householdId_userId;
+    const member = members.find(
+      (m) =>
+        (m.householdId ?? TEST_IDS.householdId) === asked.householdId &&
+        (m.userId ?? TEST_IDS.userId) === asked.userId
+    );
+    return Promise.resolve(
+      member ? createTestMembership({ ...asked, role: member.role }) : null
+    );
+  }) as never);
+}
+
+const RECORD_MODELS = [
+  "sleepRecord",
+  "feedingRecord",
+  "diaperRecord",
+  "pumpingRecord",
+  "growthRecord",
+  "activityRecord",
+  "temperatureRecord",
+  "medicine",
+] as const;
+
+// Answers the lookup the household-access check makes for a procedure that is
+// addressed by a record id: every record resolves to the given household.
+export function mockRecordOwnership(householdId: string = TEST_IDS.householdId) {
+  const viaChild = { child: { householdId } };
+  for (const model of RECORD_MODELS) {
+    (prismaMock[model].findUnique as unknown as { mockResolvedValue(v: unknown): void })
+      .mockResolvedValue(viaChild);
+  }
+  prismaMock.medicineRecord.findUnique.mockResolvedValue({
+    medicine: viaChild,
+  } as never);
 }
 
 export function createTestSleepRecord(overrides?: Record<string, unknown>) {
